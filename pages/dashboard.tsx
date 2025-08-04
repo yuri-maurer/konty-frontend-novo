@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+// pages/dashboard.tsx
+
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { getPermissoes } from '../lib/getPermissoes'; // Importa a nova função de permissões
+import { getPermissoes } from '../lib/getPermissoes';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import Sidebar from '@/components/sidebar/Sidebar';
+import ModuleCard from '@/components/dashboard/ModuleCard';
+import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'react-icons/fa';
 
-// Interface para a estrutura de dados da permissão, para garantir tipagem
+// Interface para a estrutura de dados da permissão
 interface Permissao {
   id: number;
   user_id: string;
@@ -12,74 +18,79 @@ interface Permissao {
   criado_em: string;
 }
 
+// Mapeamento de ícones por nome de módulo
+const iconesPorModulo = {
+  "extrair-pdf": FaFilePdf,
+  "gerar-boletos": FaMoneyBillWave,
+  "analise-de-xml": FaFileCode,
+  "validar-darf": FaCheckCircle,
+};
+const IconePadrao = FaCube;
+
+// Função utilitária para converter nome do módulo em URL
+const getModulePath = (moduleName: string) => {
+  return moduleName.toLowerCase().replace(/\s+/g, '-');
+};
+
 export default function DashboardPage() {
   const [permissoes, setPermissoes] = useState<Permissao[] | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchPermissoes = async () => {
-      // Função para verificar se o usuário está logado
+    const fetchUserDataAndPermissoes = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // Se não houver sessão, redireciona para a página de login
+
       if (!session) {
         router.push('/login');
         return;
       }
 
-      // Busca as permissões do usuário logado
+      const user = session.user;
+      setUserProfile({
+        name: user.user_metadata.full_name || user.email || 'Usuário',
+        email: user.email || 'N/A'
+      });
+
       const userPermissoes = await getPermissoes();
       setPermissoes(userPermissoes);
       setLoading(false);
     };
 
-    fetchPermissoes();
+    fetchUserDataAndPermissoes();
   }, [router]);
 
-  const handleLogout = async () => {
-    // Chama a função de logout do Supabase
-    await supabase.auth.signOut();
-    // Redireciona para a página de login após o logout
-    router.push('/login');
-  };
-
-  // Exibe a mensagem de carregamento enquanto as permissões são buscadas
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <p className="text-gray-600">Carregando módulos...</p>
+        <p className="text-gray-600">Carregando painel...</p>
       </div>
     );
   }
+  
+  const getModuleIcon = (moduleName: string) => {
+    const moduleKey = getModulePath(moduleName);
+    const IconComponent = iconesPorModulo[moduleKey] || IconePadrao;
+    return <IconComponent />;
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 text-center">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Painel</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out"
-          >
-            Sair
-          </button>
-        </div>
-
+    <DashboardLayout>
+      <Sidebar userProfile={userProfile} />
+      <div className="flex-1 p-8 overflow-y-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Módulos Disponíveis</h1>
         {permissoes && permissoes.length > 0 ? (
-          <>
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Módulos Disponíveis</h2>
-            <div className="flex flex-col space-y-4">
-              {permissoes.map((permissao) => (
-                <button
-                  key={permissao.id}
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
-                >
-                  {permissao.modulo}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {permissoes.map((permissao) => (
+              <ModuleCard
+                key={permissao.id}
+                title={permissao.modulo}
+                icon={getModuleIcon(permissao.modulo)}
+                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo)}`)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
             <p className="font-bold">Aviso</p>
@@ -87,6 +98,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
