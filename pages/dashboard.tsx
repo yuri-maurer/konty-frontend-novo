@@ -28,7 +28,11 @@ const iconesPorModulo = {
 const IconePadrao = FaCube;
 
 // Função utilitária para converter nome do módulo em URL
-const getModulePath = (moduleName: string) => {
+// Adicionado tratamento para moduleName ser undefined/null
+const getModulePath = (moduleName: string | null | undefined) => {
+  if (typeof moduleName !== 'string' || !moduleName) {
+    return ''; // Retorna string vazia ou um valor padrão para evitar erro
+  }
   return moduleName.toLowerCase().replace(/\s+/g, '-');
 };
 
@@ -69,8 +73,9 @@ export default function DashboardPage() {
     );
   }
   
-  const getModuleIcon = (moduleName: string) => {
-    const moduleKey = getModulePath(moduleName);
+  // Adicionado tratamento para moduleName ser undefined/null antes de chamar getModulePath
+  const getModuleIcon = (moduleName: string | null | undefined) => {
+    const moduleKey = typeof moduleName === 'string' ? getModulePath(moduleName) : '';
     const IconComponent = iconesPorModulo[moduleKey] || IconePadrao;
     return <IconComponent />;
   };
