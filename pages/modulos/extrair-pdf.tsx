@@ -45,13 +45,13 @@ const ExtrairPdfPage: FC = () => {
         return;
       }
 
-      // 2. Verifica se o usuário tem permissão para o módulo 'extrair_pdf'
+      // 2. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
       // Esta lógica busca na sua tabela 'permissoes'
       const { data: permission, error } = await supabase
         .from('permissoes')
         .select('ativo')
         .eq('user_id', user.id)
-        .eq('modulo_nome', 'extrair_pdf') // O nome do módulo que você especificou
+        .eq('modulo_nome', 'extrair-pdf') // CORRIGIDO: de 'extrair_pdf' para 'extrair-pdf' (com hífen)
         .single();
 
       if (error || !permission?.ativo) {
@@ -92,8 +92,7 @@ const ExtrairPdfPage: FC = () => {
         addLog('Seleção de Arquivo', 'Sucesso', 'Arquivo PDF selecionado.', selectedFile.name);
       } else {
         addLog('Seleção de Arquivo', 'Erro', 'Formato de arquivo inválido.', selectedFile.name);
-        // Aqui você pode usar uma biblioteca de toast ou um modal para exibir o erro
-        alert('Erro: Por favor, selecione um arquivo PDF.');
+        setStatusMessage({ text: 'Erro: Por favor, selecione um arquivo PDF.', type: 'error' });
         setFile(null);
       }
     }
@@ -109,7 +108,7 @@ const ExtrairPdfPage: FC = () => {
 
   const handleSubmit = async () => {
     if (!file) {
-      alert('Por favor, selecione um arquivo PDF primeiro.');
+      setStatusMessage({ text: 'Por favor, selecione um arquivo PDF primeiro.', type: 'error' });
       addLog('Processamento', 'Erro', 'Tentativa de processar sem arquivo selecionado.');
       return;
     }
@@ -155,9 +154,12 @@ const ExtrairPdfPage: FC = () => {
       setStatusMessage({ text: `Arquivo ZIP '${filename}' baixado com sucesso!`, type: 'success' });
       addLog('Processamento e Download', 'Sucesso', `Arquivo ZIP '${filename}' baixado.`);
 
-    } catch (error: any) {
+    } catch (error: unknown) { // ALTERADO: de 'any' para 'unknown'
       console.error("Erro ao processar PDF:", error);
-      const errorMessage = error.message || 'Não foi possível conectar ao backend.';
+      let errorMessage = 'Não foi possível conectar ao backend.';
+      if (error instanceof Error) { // Verificação de tipo para acessar 'message'
+        errorMessage = error.message;
+      }
       setStatusMessage({ text: `Erro: ${errorMessage}`, type: 'error' });
       addLog('Processamento Backend', 'Erro', errorMessage);
     } finally {
@@ -184,7 +186,7 @@ const ExtrairPdfPage: FC = () => {
   
     const handleExportLogs = () => {
         if (logs.length === 0) {
-            alert('Não há logs para exportar.');
+            setStatusMessage({ text: 'Não há logs para exportar.', type: 'error' });
             return;
         }
         const csvHeader = "Data/Hora,Arquivo,Ação,Resultado,Detalhes\n";
