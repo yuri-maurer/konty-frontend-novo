@@ -23,7 +23,7 @@ type StatusMessage = {
 const ExtrairPdfPage: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const user = useUser();
+  const user = useUser(); // user pode ser null inicialmente
 
   // --- Estados para Gerenciamento do Componente (Migração do JS original) ---
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
@@ -41,12 +41,21 @@ const ExtrairPdfPage: FC = () => {
       // 1. Verifica se existe uma sessão de usuário ativa
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        console.log('Sessão não encontrada, redirecionando para login.');
         router.push('/login');
         return;
       }
 
-      // 2. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
-      // Esta lógica busca na sua tabela 'permissoes'
+      // 2. Garante que o objeto 'user' e seu 'id' estão disponíveis antes de consultar permissões
+      // Adicionado console.log para depurar o estado do user
+      console.log('Estado atual do user no useEffect:', user);
+      if (!user || !user.id) {
+        console.log("Usuário ou ID do usuário não disponível ainda, aguardando...");
+        return; // Sai e espera o 'user' ser populado
+      }
+
+      // 3. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
+      console.log('Verificando permissões para User ID:', user.id, 'e módulo:', 'extrair-pdf');
       const { data: permission, error } = await supabase
         .from('permissoes')
         .select('ativo')
@@ -54,20 +63,25 @@ const ExtrairPdfPage: FC = () => {
         .eq('modulo_nome', 'extrair-pdf') // CORRIGIDO: de 'extrair_pdf' para 'extrair-pdf' (com hífen)
         .single();
 
-      if (error || !permission?.ativo) {
-        // Se houver erro ou a permissão não estiver ativa, redireciona para o painel
+      if (error) {
+        console.error("Erro ao buscar permissão no Supabase:", error);
+        router.push('/dashboard?error=permission_fetch_failed');
+        return;
+      }
+
+      if (!permission?.ativo) {
+        console.log("Permissão não ativa para o módulo 'extrair-pdf' para o usuário:", user.id);
         router.push('/dashboard?error=unauthorized');
       } else {
-        // Se tudo estiver certo, autoriza a exibição da página
+        console.log("Usuário autorizado para 'extrair-pdf'.");
         setIsAuthorized(true);
       }
     };
 
-    if (user) {
-      checkAuthAndPermissions();
-    }
-  }, [user, router, supabase]);
-
+    // Chama a função de verificação de permissões. O próprio checkAuthAndPermissions
+    // vai lidar com a disponibilidade do 'user' internamente.
+    checkAuthAndPermissions();
+  }, [user, router, supabase]); // Depende de 'user' para re-executar quando ele muda
 
   // --- Funções de Lógica do Componente (Migração do JS original) ---
 
