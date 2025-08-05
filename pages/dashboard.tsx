@@ -28,7 +28,6 @@ const iconesPorModulo = {
 const IconePadrao = FaCube;
 
 // Função utilitária para converter nome do módulo em URL
-// Adicionado tratamento para moduleName ser undefined/null
 const getModulePath = (moduleName: string | null | undefined) => {
   if (typeof moduleName !== 'string' || !moduleName) {
     return ''; // Retorna string vazia ou um valor padrão para evitar erro
@@ -44,7 +43,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchUserDataAndPermissoes = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } = {} } = await supabase.auth.getSession(); // Desestrutura com valor padrão para evitar undefined
 
       if (!session) {
         router.push('/login');
@@ -53,13 +52,17 @@ export default function DashboardPage() {
 
       const user = session.user;
       setUserProfile({
-        name: user.user_metadata.full_name || user.email || 'Usuário',
-        email: user.email || 'N/A'
+        name: user?.user_metadata?.full_name || user?.email || 'Usuário', // Acesso seguro a propriedades aninhadas
+        email: user?.email || 'N/A'
       });
 
       const userPermissoes = await getPermissoes();
       setPermissoes(userPermissoes);
       setLoading(false);
+
+      // --- ADIÇÃO PARA DEPURAR: Verifique o conteúdo de 'permissoes' ---
+      console.log('Permissões carregadas:', userPermissoes);
+      // --- FIM DA ADIÇÃO ---
     };
 
     fetchUserDataAndPermissoes();
@@ -73,7 +76,6 @@ export default function DashboardPage() {
     );
   }
   
-  // Adicionado tratamento para moduleName ser undefined/null antes de chamar getModulePath
   const getModuleIcon = (moduleName: string | null | undefined) => {
     const moduleKey = typeof moduleName === 'string' ? getModulePath(moduleName) : '';
     const IconComponent = iconesPorModulo[moduleKey] || IconePadrao;
@@ -90,7 +92,7 @@ export default function DashboardPage() {
             {permissoes.map((permissao) => (
               <ModuleCard
                 key={permissao.id}
-                title={permissao.modulo}
+                title={permissao.modulo || 'Módulo Desconhecido'} // Fallback para o título
                 icon={getModuleIcon(permissao.modulo)}
                 onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo)}`)}
               />
