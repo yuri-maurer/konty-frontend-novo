@@ -13,7 +13,7 @@ import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'r
 interface Permissao {
   id: number;
   user_id: string;
-  modulo: string;
+  modulo_nome: string; // CORRIGIDO: de 'modulo' para 'modulo_nome'
   ativo: boolean;
   criado_em: string;
 }
@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchUserDataAndPermissoes = async () => {
-      const { data: { session } = {} } = await supabase.auth.getSession(); // Desestrutura com valor padrão para evitar undefined
+      const { data: { session } = {} } = await supabase.auth.getSession();
 
       if (!session) {
         router.push('/login');
@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
       const user = session.user;
       setUserProfile({
-        name: user?.user_metadata?.full_name || user?.email || 'Usuário', // Acesso seguro a propriedades aninhadas
+        name: user?.user_metadata?.full_name || user?.email || 'Usuário',
         email: user?.email || 'N/A'
       });
 
@@ -60,9 +60,7 @@ export default function DashboardPage() {
       setPermissoes(userPermissoes);
       setLoading(false);
 
-      // --- ADIÇÃO PARA DEPURAR: Verifique o conteúdo de 'permissoes' ---
       console.log('Permissões carregadas:', userPermissoes);
-      // --- FIM DA ADIÇÃO ---
     };
 
     fetchUserDataAndPermissoes();
@@ -92,9 +90,9 @@ export default function DashboardPage() {
             {permissoes.map((permissao) => (
               <ModuleCard
                 key={permissao.id}
-                title={permissao.modulo || 'Módulo Desconhecido'} // Fallback para o título
-                icon={getModuleIcon(permissao.modulo)}
-                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo)}`)}
+                title={permissao.modulo_nome || 'Módulo Desconhecido'} // CORRIGIDO: usando 'modulo_nome'
+                icon={getModuleIcon(permissao.modulo_nome)} // CORRIGIDO: usando 'modulo_nome'
+                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo_nome)}`)} // CORRIGIDO: usando 'modulo_nome'
               />
             ))}
           </div>
