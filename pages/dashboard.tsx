@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { getPermissoes } from '../lib/getPermissoes';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import Sidebar from '@/components/sidebar/Sidebar';
-import ModuleCard from '@/components/dashboard/ModuleCard';
+import DashboardLayout from '../components/layout/DashboardLayout';
+import Sidebar from '../components/sidebar/Sidebar';
+import ModuleCard from '../components/dashboard/ModuleCard';
 import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'react-icons/fa';
 
 // Interface para a estrutura de dados da permissão
