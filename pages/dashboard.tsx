@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { getPermissoes } from '../lib/getPermissoes';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import Sidebar from '../components/sidebar/Sidebar';
+import Sidebar from '../components/sidebar/sidebar'; // CORRIGIDO: de 'Sidebar' para 'sidebar' (s minúsculo)
 import ModuleCard from '../components/dashboard/ModuleCard';
 import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'react-icons/fa';
 
@@ -13,7 +13,7 @@ import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'r
 interface Permissao {
   id: number;
   user_id: string;
-  modulo_nome: string; // CORRIGIDO: de 'modulo' para 'modulo_nome'
+  modulo_nome: string;
   ativo: boolean;
   criado_em: string;
 }
@@ -30,7 +30,7 @@ const IconePadrao = FaCube;
 // Função utilitária para converter nome do módulo em URL
 const getModulePath = (moduleName: string | null | undefined) => {
   if (typeof moduleName !== 'string' || !moduleName) {
-    return ''; // Retorna string vazia ou um valor padrão para evitar erro
+    return '';
   }
   return moduleName.toLowerCase().replace(/\s+/g, '-');
 };
@@ -90,9 +90,9 @@ export default function DashboardPage() {
             {permissoes.map((permissao) => (
               <ModuleCard
                 key={permissao.id}
-                title={permissao.modulo_nome || 'Módulo Desconhecido'} // CORRIGIDO: usando 'modulo_nome'
-                icon={getModuleIcon(permissao.modulo_nome)} // CORRIGIDO: usando 'modulo_nome'
-                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo_nome)}`)} // CORRIGIDO: usando 'modulo_nome'
+                title={permissao.modulo_nome || 'Módulo Desconhecido'}
+                icon={getModuleIcon(permissao.modulo_nome)}
+                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo_nome)}`)}
               />
             ))}
           </div>
