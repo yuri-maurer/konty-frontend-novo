@@ -42,7 +42,7 @@ export default function Sidebar({ userProfile }: SidebarProps) {
             ${router.pathname === '/dashboard' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}`}
         >
           <FaTachometerAlt className="mr-3" />
-          Painel
+          Módulos {/* ALTERADO: de 'Painel' para 'Módulos' */}
         </button>
       </nav>
 
