@@ -3,20 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
-import { getPermissoes } from '../lib/getPermissoes';
+import { getPermissoes, Permissao } from '../lib/getPermissoes'; // Importa Permissao da mesma origem de getPermissoes
 import DashboardLayout from '../components/layout/DashboardLayout';
 import Sidebar from '../components/sidebar/Sidebar'; // Garante o 'S' maiúsculo para case-sensitivity
 import ModuleCard from '../components/dashboard/ModuleCard';
 import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'react-icons/fa';
 
-// Interface para a estrutura de dados da permissão
-interface Permissao {
-  id: number;
-  user_id: string;
-  modulo_nome: string;
-  ativo: boolean;
-  criado_em: string;
-}
+// REMOVIDO: A interface Permissao foi removida deste arquivo
+// para evitar o conflito de tipagem com a interface que deve
+// ser exportada de '../lib/getPermissoes'.
 
 // Mapeamento de ícones por nome de módulo
 const iconesPorModulo = {

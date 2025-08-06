@@ -1,10 +1,12 @@
 import { supabase } from './supabaseClient'; // Importa a instância do cliente Supabase
 
 // Interface para a estrutura de dados da tabela 'permissoes'
-interface Permissao {
+// CORRIGIDO: A interface agora é exportada para ser usada em outros arquivos.
+// CORRIGIDO: O nome da propriedade foi alterado de 'modulo' para 'modulo_nome' para corresponder ao Supabase.
+export interface Permissao {
   id: number;
   user_id: string;
-  modulo: string;
+  modulo_nome: string; // Propriedade correta
   ativo: boolean;
   criado_em: string;
 }
