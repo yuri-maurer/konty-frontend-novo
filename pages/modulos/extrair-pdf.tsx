@@ -37,36 +37,27 @@ const ExtrairPdfPage: FC = () => {
 
   // --- Efeito para Proteção de Rota e Verificação de Permissão ---
   useEffect(() => {
-    const checkAuthAndPermissions = async () => {
-      // CORREÇÃO: Verifica se o cliente Supabase está disponível antes de usá-lo
-      if (!supabase) {
-        console.log("Supabase client não está disponível ainda, aguardando...");
+    // CORREÇÃO REFINADA: Só executa a verificação se o cliente Supabase e o objeto 'user' existirem
+    if (!supabase || user === undefined) {
+        console.log("Supabase client ou user não disponível ainda, aguardando...");
         return;
-      }
-      
-      // 1. Verifica se existe uma sessão de usuário ativa
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('Sessão não encontrada, redirecionando para login.');
+    }
+
+    const checkAuthAndPermissions = async () => {
+      // 1. Se o usuário não existe, redireciona para o login
+      if (!user) {
+        console.log('Sessão de usuário não encontrada, redirecionando para login.');
         router.push('/login');
         return;
       }
 
-      // 2. Garante que o objeto 'user' e seu 'id' estão disponíveis antes de consultar permissões
-      // Adicionado console.log para depurar o estado do user
-      console.log('Estado atual do user no useEffect:', user);
-      if (!user || !user.id) {
-        console.log("Usuário ou ID do usuário não disponível ainda, aguardando...");
-        return; // Sai e espera o 'user' ser populado
-      }
-
-      // 3. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
+      // 2. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
       console.log('Verificando permissões para User ID:', user.id, 'e módulo:', 'extrair-pdf');
       const { data: permission, error } = await supabase
         .from('permissoes')
         .select('ativo')
         .eq('user_id', user.id)
-        .eq('modulo_nome', 'extrair-pdf') // CORRIGIDO: de 'extrair_pdf' para 'extrair-pdf' (com hífen)
+        .eq('modulo_nome', 'extrair-pdf')
         .single();
 
       if (error) {
@@ -84,10 +75,8 @@ const ExtrairPdfPage: FC = () => {
       }
     };
 
-    // Chama a função de verificação de permissões. O próprio checkAuthAndPermissions
-    // vai lidar com a disponibilidade do 'user' internamente.
     checkAuthAndPermissions();
-  }, [user, router, supabase]); // Depende de 'user' para re-executar quando ele muda
+  }, [user, router, supabase]); // A dependência em 'user' garante que o efeito roda quando o estado de autenticação muda.
 
   // --- Funções de Lógica do Componente (Migração do JS original) ---
 
