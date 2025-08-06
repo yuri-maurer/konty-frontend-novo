@@ -38,6 +38,12 @@ const ExtrairPdfPage: FC = () => {
   // --- Efeito para Proteção de Rota e Verificação de Permissão ---
   useEffect(() => {
     const checkAuthAndPermissions = async () => {
+      // CORREÇÃO: Verifica se o cliente Supabase está disponível antes de usá-lo
+      if (!supabase) {
+        console.log("Supabase client não está disponível ainda, aguardando...");
+        return;
+      }
+      
       // 1. Verifica se existe uma sessão de usuário ativa
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
