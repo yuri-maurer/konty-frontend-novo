@@ -1,6 +1,7 @@
+// pages/login.tsx
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabaseClient';
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -8,16 +9,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  
+  const supabase = useSupabaseClient();
+  const user = useUser();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
-      }
-    };
-    checkSession();
-  }, [router]);
+    // Se o hook 'useUser' confirmar que há um usuário logado, redireciona.
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +37,11 @@ export default function LoginPage() {
     }
     setLoading(false);
   };
+
+  // Se o usuário já estiver logado, mostra um loading para evitar piscar a tela de login
+  if (user) {
+    return <div className="flex h-screen items-center justify-center">A redirecionar...</div>;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -80,7 +86,7 @@ export default function LoginPage() {
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
             disabled={loading}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? 'A entrar...' : 'Entrar'}
           </button>
         </form>
       </div>

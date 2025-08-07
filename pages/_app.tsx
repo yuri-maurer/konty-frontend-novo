@@ -10,7 +10,6 @@ interface MyAppProps extends AppProps<{ initialSession: Session }> {}
 
 function MyApp({ Component, pageProps }: MyAppProps) {
   // Cria um cliente Supabase uma única vez e o armazena no estado.
-  // Isto evita a recriação do cliente a cada renderização.
   const [supabaseClient] = useState(() => createPagesBrowserClient());
 
   return (
