@@ -22,61 +22,61 @@ type StatusMessage = {
 const ExtrairPdfPage: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const user = useUser(); // MUDANÇA PRINCIPAL: Usaremos 'user' como fonte da verdade para autenticação.
+  const user = useUser(); // A fonte da verdade para autenticação
 
   // --- Estados do Componente ---
-  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true); // ADICIONADO: Estado para controlar o carregamento inicial
+  const [isLoading, setIsLoading] = useState(true); // Estado de carregamento geral
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'dividir' | 'logs'>('dividir');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false); // Renomeado de isLoading para ser mais específico
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // MUDANÇA PRINCIPAL: Lógica de verificação de permissão foi refatorada
-  // para esperar o objeto 'user' estar disponível.
+  // MUDANÇA PRINCIPAL: Lógica de verificação refatorada para ser mais robusta.
   useEffect(() => {
-    // Se o hook do Supabase ainda não carregou o usuário, não fazemos nada.
-    // Apenas esperamos.
-    if (!user) {
-        // Se após a verificação inicial o user continuar nulo, redireciona.
-        // Isso previne o loop caso o usuário acesse a URL diretamente sem estar logado.
-        const timer = setTimeout(() => {
-             if(!user) {
-                console.log("Sessão de usuário não encontrada, redirecionando para login.");
-                router.push('/login');
-             }
-        }, 1000); // Um pequeno delay para dar tempo da sessão ser hidratada
-        return () => clearTimeout(timer);
+    // Se o hook useUser ainda não determinou o estado do usuário (nem logado, nem deslogado),
+    // não fazemos nada e apenas esperamos. O estado 'isLoading' mantém a tela de carregamento.
+    if (user === undefined) {
+      return; 
     }
 
+    // Se o hook useUser confirmou que NÃO há usuário, redirecionamos para o login.
+    if (!user) {
+      console.log("Sessão de usuário não encontrada, redirecionando para login.");
+      router.push('/login');
+      return;
+    }
+
+    // Se chegamos aqui, significa que o 'user' existe. Agora podemos verificar as permissões.
     const checkPermissions = async () => {
-      if (!supabase || !user) return;
+      if (!supabase) return;
 
       const { data: permission, error } = await supabase
         .from('permissoes')
         .select('ativo')
         .eq('user_id', user.id)
-        .eq('modulo_nome', 'extrair-pdf') // Nome do módulo correto
+        .eq('modulo_nome', 'extrair-pdf')
         .single();
 
       if (error || !permission?.ativo) {
-        console.error("Usuário não autorizado para este módulo. Redirecionando.");
+        console.error("Usuário não autorizado para este módulo. Redirecionando para o dashboard.");
         router.push('/dashboard?error=unauthorized');
       } else {
-        console.log("Usuário autorizado. Renderizando módulo.");
+        console.log("Usuário autorizado. Renderizando o módulo.");
         setIsAuthorized(true);
       }
-      setIsLoadingPermissions(false);
+      // Independentemente do resultado, o carregamento terminou.
+      setIsLoading(false);
     };
 
     checkPermissions();
   }, [user, supabase, router]);
 
 
-  // --- Funções de Lógica do Componente (sem alterações significativas) ---
+  // --- Funções de Lógica do Componente (sem alterações) ---
   const addLog = useCallback((action: string, result: LogEntry['result'], details: string = '', fileName?: string) => {
     const now = new Date();
     const newLog: LogEntry = {
@@ -184,17 +184,16 @@ const ExtrairPdfPage: FC = () => {
   };
 
   // --- Renderização Condicional ---
-  if (isLoadingPermissions) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-gray-600">Verificando permissões do módulo...</p>
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-gray-600">Verificando permissões...</p>
       </div>
     );
   }
 
   if (!isAuthorized) {
-     // Se não estiver autorizado após a verificação, não renderiza nada ou mostra uma mensagem de erro.
-     // O redirecionamento já foi tratado no useEffect.
+     // Se não estiver autorizado, não renderiza nada, pois o useEffect já tratou do redirecionamento.
      return null;
   }
 
