@@ -1,6 +1,4 @@
 // pages/dashboard.tsx
-console.log("--- EXECUTANDO A VERSÃO CORRIGIDA V3 DO DASHBOARD ---"); // Linha de verificação
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -12,7 +10,6 @@ import { AiOutlineFilePdf, AiOutlineCalculator } from 'react-icons/ai';
 import { FaUsers } from 'react-icons/fa';
 
 // --- CONFIGURAÇÃO CENTRAL DE MÓDULOS ---
-// A chave (ex: 'extrair-pdf') deve ser EXATAMENTE igual ao 'modulo_nome' no Supabase.
 const MODULE_DEFINITIONS = {
   'extrair-pdf': {
     name: 'Extrair PDF',
@@ -29,7 +26,6 @@ const MODULE_DEFINITIONS = {
     path: '/modulos/calculadora',
     icon: AiOutlineCalculator,
   },
-  // Adicione futuros módulos aqui...
 };
 
 const DashboardPage = () => {
@@ -41,10 +37,7 @@ const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user === undefined) {
-      return; 
-    }
-
+    if (user === undefined) return;
     if (!user) {
       router.push('/login');
       return;
@@ -63,8 +56,6 @@ const DashboardPage = () => {
         return;
       }
       
-      console.log('Permissões carregadas do Supabase:', permissions);
-
       const userModules = permissions
         .map(p => MODULE_DEFINITIONS[p.modulo_nome])
         .filter(Boolean); 
@@ -91,7 +82,7 @@ const DashboardPage = () => {
               key={module.path}
               title={module.name}
               path={module.path}
-              icon={module.icon} // Passa o componente do ícone diretamente
+              icon={module.icon}
             />
           ))}
         </div>

@@ -5,16 +5,12 @@ import type { AppProps } from 'next/app';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { SessionContextProvider, Session } from '@supabase/auth-helpers-react';
 
-// Adiciona a propriedade initialSession ao AppProps
 interface MyAppProps extends AppProps<{ initialSession: Session }> {}
 
 function MyApp({ Component, pageProps }: MyAppProps) {
-  // Cria um cliente Supabase uma única vez e o armazena no estado.
   const [supabaseClient] = useState(() => createPagesBrowserClient());
 
   return (
-    // O SessionContextProvider envolve toda a aplicação,
-    // fornecendo um estado de sessão centralizado.
     <SessionContextProvider
       supabaseClient={supabaseClient}
       initialSession={pageProps.initialSession}
