@@ -22,10 +22,9 @@ type StatusMessage = {
 const ExtrairPdfPage: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const user = useUser(); // A fonte da verdade para autenticação
+  const user = useUser();
 
-  // --- Estados do Componente ---
-  const [isLoading, setIsLoading] = useState(true); // Estado de carregamento geral
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'dividir' | 'logs'>('dividir');
   const [file, setFile] = useState<File | null>(null);
@@ -35,22 +34,13 @@ const ExtrairPdfPage: FC = () => {
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // MUDANÇA PRINCIPAL: Lógica de verificação refatorada para ser mais robusta.
   useEffect(() => {
-    // Se o hook useUser ainda não determinou o estado do usuário (nem logado, nem deslogado),
-    // não fazemos nada e apenas esperamos. O estado 'isLoading' mantém a tela de carregamento.
-    if (user === undefined) {
-      return; 
-    }
-
-    // Se o hook useUser confirmou que NÃO há usuário, redirecionamos para o login.
+    if (user === undefined) return;
     if (!user) {
-      console.log("Sessão de usuário não encontrada, redirecionando para login.");
       router.push('/login');
       return;
     }
 
-    // Se chegamos aqui, significa que o 'user' existe. Agora podemos verificar as permissões.
     const checkPermissions = async () => {
       if (!supabase) return;
 
@@ -62,21 +52,16 @@ const ExtrairPdfPage: FC = () => {
         .single();
 
       if (error || !permission?.ativo) {
-        console.error("Usuário não autorizado para este módulo. Redirecionando para o dashboard.");
         router.push('/dashboard?error=unauthorized');
       } else {
-        console.log("Usuário autorizado. Renderizando o módulo.");
         setIsAuthorized(true);
       }
-      // Independentemente do resultado, o carregamento terminou.
       setIsLoading(false);
     };
 
     checkPermissions();
   }, [user, supabase, router]);
 
-
-  // --- Funções de Lógica do Componente (sem alterações) ---
   const addLog = useCallback((action: string, result: LogEntry['result'], details: string = '', fileName?: string) => {
     const now = new Date();
     const newLog: LogEntry = {
@@ -119,8 +104,8 @@ const ExtrairPdfPage: FC = () => {
     }
 
     setIsProcessing(true);
-    setStatusMessage({ text: 'Enviando PDF para processamento...', type: 'processing' });
-    addLog('Envio para Backend', 'Processando', 'Iniciando upload do PDF.');
+    setStatusMessage({ text: 'A enviar PDF para processamento...', type: 'processing' });
+    addLog('Envio para Backend', 'Processando', 'A iniciar upload do PDF.');
 
     const formData = new FormData();
     formData.append('pdfFile', file);
@@ -183,30 +168,25 @@ const ExtrairPdfPage: FC = () => {
     addLog('Exportar Logs', 'Sucesso', 'Logs exportados para CSV.');
   };
 
-  // --- Renderização Condicional ---
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-600">Verificando permissões...</p>
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-600">A verificar permissões do módulo...</p>
       </div>
     );
   }
 
   if (!isAuthorized) {
-     // Se não estiver autorizado, não renderiza nada, pois o useEffect já tratou do redirecionamento.
      return null;
   }
 
   // Renderização principal do componente
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <header className="bg-white border-b border-gray-200 py-4 px-6">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {activeTab === 'dividir' ? 'Dividir PDFs' : 'Histórico de Processamento'}
-        </h1>
-      </header>
-      <div className="p-6 border-b border-gray-200 bg-white">
-        <nav className="flex space-x-4">
+    // CORREÇÃO: Adicionado 'flex flex-col h-full' para que o layout ocupe todo o espaço vertical.
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-md">
+      {/* Header com abas */}
+      <div className="p-4 border-b border-gray-200">
+        <nav className="flex space-x-2">
             <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'dividir' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                 Dividir PDF
             </button>
@@ -215,74 +195,74 @@ const ExtrairPdfPage: FC = () => {
             </button>
         </nav>
       </div>
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+      
+      {/* Área de conteúdo da aba */}
+      <div className="flex-1 p-6 overflow-y-auto">
         {activeTab === 'dividir' && (
           <div>
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
-                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
-                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors duration-300 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
-              >
-                <div className="flex flex-col items-center justify-center">
-                  <i className="fas fa-cloud-upload-alt text-4xl text-blue-500 mb-3"></i>
-                  <p className="text-gray-600 mb-1">Arraste e solte seu arquivo PDF aqui</p>
-                  <p className="text-gray-500 text-sm mb-4">ou</p>
-                  <input type="file" id="file-input" className="hidden" accept=".pdf" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} />
-                  <label htmlFor="file-input" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out shadow-md cursor-pointer">
-                    Selecionar PDF
-                  </label>
-                </div>
-              </div>
-              {file && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center">
-                      <i className="fas fa-file-pdf text-red-500 mr-2"></i>
-                      <span className="font-medium">{file.name}</span>
-                    </div>
-                    <button onClick={handleRemoveFile} className="text-red-500 hover:text-red-700">
-                      <i className="fas fa-times"></i>
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={handleSubmit}
-                  disabled={!file || isProcessing}
-                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processando...
-                    </>
-                  ) : ( 'Processar e Baixar PDF' )}
-                </button>
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
+              className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors duration-300 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
+            >
+              <div className="flex flex-col items-center justify-center">
+                <i className="fas fa-cloud-upload-alt text-5xl text-blue-500 mb-4"></i>
+                <p className="text-lg text-gray-700 mb-2">Arraste e solte o seu arquivo PDF aqui</p>
+                <p className="text-gray-500 text-sm mb-4">ou</p>
+                <input type="file" id="file-input" className="hidden" accept=".pdf" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} />
+                <label htmlFor="file-input" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out shadow-md cursor-pointer">
+                  Selecionar PDF
+                </label>
               </div>
             </div>
+            {file && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border">
+                  <div className="flex items-center space-x-3">
+                    <i className="fas fa-file-pdf text-2xl text-red-500"></i>
+                    <span className="font-medium text-gray-800">{file.name}</span>
+                  </div>
+                  <button onClick={handleRemoveFile} className="text-red-500 hover:text-red-700 transition-colors">
+                    <i className="fas fa-times-circle text-xl"></i>
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleSubmit}
+                disabled={!file || isProcessing}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 flex items-center disabled:bg-gray-400 disabled:cursor-not-allowed text-lg shadow-lg"
+              >
+                {isProcessing ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    A processar...
+                  </>
+                ) : ( 'Processar e Baixar PDF' )}
+              </button>
+            </div>
              {statusMessage && (
-                <div className={`mt-6 p-4 rounded-lg text-center ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+                <div className={`mt-6 p-4 rounded-lg text-center font-medium ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
                     {statusMessage.text}
                 </div>
             )}
           </div>
         )}
         {activeTab === 'logs' && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg">
              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
                 <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
                     <i className="fas fa-download mr-2"></i> Exportar Logs
                 </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto border rounded-lg">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -310,7 +290,7 @@ const ExtrairPdfPage: FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="text-center py-10 text-gray-500">Nenhum registro de log encontrado.</td>
+                      <td colSpan={5} className="text-center py-10 text-gray-500">Nenhum registo de log encontrado.</td>
                     </tr>
                   )}
                 </tbody>
