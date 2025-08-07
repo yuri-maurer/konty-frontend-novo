@@ -1,103 +1,114 @@
 // pages/dashboard.tsx
-
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabaseClient';
-import { getPermissoes, Permissao } from '../lib/getPermissoes'; // Importa Permissao da mesma origem de getPermissoes
+import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import Sidebar from '../components/sidebar/Sidebar'; // Garante o 'S' maiúsculo para case-sensitivity
 import ModuleCard from '../components/dashboard/ModuleCard';
-import { FaFilePdf, FaMoneyBillWave, FaFileCode, FaCheckCircle, FaCube } from 'react-icons/fa';
 
-// REMOVIDO: A interface Permissao foi removida deste arquivo
-// para evitar o conflito de tipagem com a interface que deve
-// ser exportada de '../lib/getPermissoes'.
+// Importe os ícones que você vai usar
+import { AiOutlineFilePdf, AiOutlineCalculator } from 'react-icons/ai';
+import { FaUsers, FaCube } from 'react-icons/fa';
 
-// Mapeamento de ícones por nome de módulo
-const iconesPorModulo = {
-  "extrair-pdf": FaFilePdf,
-  "gerar-boletos": FaMoneyBillWave,
-  "analise-de-xml": FaFileCode,
-  "validar-darf": FaCheckCircle,
+// --- CONFIGURAÇÃO CENTRAL DE MÓDULOS ---
+// Esta é a forma mais escalável de gerenciar módulos.
+// A chave (ex: 'extrair-pdf') deve ser EXATAMENTE igual ao 'modulo_nome' no Supabase.
+const MODULE_DEFINITIONS = {
+  'extrair-pdf': {
+    name: 'Extrair PDF',
+    path: '/modulos/extrair-pdf',
+    icon: AiOutlineFilePdf,
+  },
+  'gestao-usuarios': {
+    name: 'Gestão de Usuários',
+    path: '/admin/usuarios',
+    icon: FaUsers,
+  },
+  'calculadora': {
+    name: 'Calculadora',
+    path: '/modulos/calculadora',
+    icon: AiOutlineCalculator,
+  },
+  // Adicione futuros módulos aqui...
 };
-const IconePadrao = FaCube;
 
-// Função utilitária para converter nome do módulo em URL
-const getModulePath = (moduleName: string | null | undefined) => {
-  if (typeof moduleName !== 'string' || !moduleName) {
-    return '';
-  }
-  return moduleName.toLowerCase().replace(/\s+/g, '-');
-};
-
-export default function DashboardPage() {
-  const [permissoes, setPermissoes] = useState<Permissao[] | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+const DashboardPage = () => {
   const router = useRouter();
+  const user = useUser();
+  const supabaseClient = useSupabaseClient();
 
+  const [allowedModules, setAllowedModules] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Lógica de busca de permissões refatorada para ser direta e robusta
   useEffect(() => {
-    const fetchUserDataAndPermissoes = async () => {
-      const { data: { session } = {} } = await supabase.auth.getSession();
+    // Espera o hook useUser definir o estado do usuário
+    if (user === undefined) {
+      return; 
+    }
 
-      if (!session) {
-        router.push('/login');
+    // Se não houver usuário, redireciona para o login
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchPermissions = async () => {
+      // Busca as permissões diretamente aqui, sem usar 'getPermissoes.ts'
+      const { data: permissions, error } = await supabaseClient
+        .from('permissoes')
+        .select('modulo_nome')
+        .eq('user_id', user.id)
+        .eq('ativo', true);
+
+      if (error) {
+        console.error('Erro ao buscar permissões:', error.message);
+        setIsLoading(false);
         return;
       }
+      
+      console.log('Permissões carregadas do Supabase:', permissions);
 
-      const user = session.user;
-      setUserProfile({
-        name: user?.user_metadata?.full_name || user?.email || 'Usuário',
-        email: user?.email || 'N/A'
-      });
+      // Mapeia os nomes dos módulos do banco para os objetos completos
+      const userModules = permissions
+        .map(p => MODULE_DEFINITIONS[p.modulo_nome])
+        .filter(Boolean); // Filtra para remover módulos não definidos no frontend
 
-      const userPermissoes = await getPermissoes();
-      setPermissoes(userPermissoes);
-      setLoading(false);
-
-      console.log('Permissões carregadas:', userPermissoes);
+      setAllowedModules(userModules);
+      setIsLoading(false);
     };
 
-    fetchUserDataAndPermissoes();
-  }, [router]);
+    fetchPermissions();
+  }, [user, router, supabaseClient]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <p className="text-gray-600">Carregando painel...</p>
-      </div>
-    );
+  // Tela de carregamento enquanto busca os dados
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">Carregando painel...</div>;
   }
-  
-  const getModuleIcon = (moduleName: string | null | undefined) => {
-    const moduleKey = typeof moduleName === 'string' ? getModulePath(moduleName) : '';
-    const IconComponent = iconesPorModulo[moduleKey] || IconePadrao;
-    return <IconComponent />;
-  };
 
+  // O DashboardLayout agora recebe os módulos permitidos para passar para a Sidebar
   return (
-    <DashboardLayout>
-      <Sidebar userProfile={userProfile} />
-      <div className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Módulos Disponíveis</h1>
-        {permissoes && permissoes.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {permissoes.map((permissao) => (
-              <ModuleCard
-                key={permissao.id}
-                title={permissao.modulo_nome || 'Módulo Desconhecido'}
-                icon={getModuleIcon(permissao.modulo_nome)}
-                onClick={() => router.push(`/modulos/${getModulePath(permissao.modulo_nome)}`)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-            <p className="font-bold">Aviso</p>
-            <p>Nenhum módulo disponível para o seu usuário. Contate o administrador.</p>
-          </div>
-        )}
-      </div>
+    <DashboardLayout modules={allowedModules}>
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Módulos Disponíveis</h1>
+      
+      {allowedModules.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {allowedModules.map((module) => (
+            <ModuleCard
+              key={module.path}
+              title={module.name}
+              path={module.path}
+              icon={module.icon}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
+            <p className="text-gray-600">Nenhum módulo disponível para seu usuário.</p>
+            <p className="text-sm text-gray-500 mt-2">Entre em contato com o administrador do sistema.</p>
+        </div>
+      )}
     </DashboardLayout>
   );
-}
+};
+
+export default DashboardPage;
