@@ -40,21 +40,20 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
         <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">Módulos</p>
         <ul>
           {modules.map((module) => {
-            // O ícone é renderizado aqui como um componente
-            const Icon = module.icon; 
+            const Icon = module.icon;
             return (
               <li key={module.path}>
-                <Link href={module.path}>
-                  <a
-                    className={`flex items-center px-4 py-3 my-1 rounded-lg transition-colors duration-200 ${
-                      router.pathname.startsWith(module.path)
-                        ? 'bg-blue-100 text-blue-700 font-semibold'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon size={22} className="mr-3" />
-                    <span>{module.name}</span>
-                  </a>
+                {/* CORREÇÃO: A tag <a> foi removida e as classes de estilo foram aplicadas diretamente ao componente <Link>. */}
+                <Link
+                  href={module.path}
+                  className={`flex items-center px-4 py-3 my-1 rounded-lg transition-colors duration-200 ${
+                    router.pathname.startsWith(module.path)
+                      ? 'bg-blue-100 text-blue-700 font-semibold'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon size={22} className="mr-3" />
+                  <span>{module.name}</span>
                 </Link>
               </li>
             );
