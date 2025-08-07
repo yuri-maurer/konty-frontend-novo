@@ -1,11 +1,10 @@
 // pages/modulos/extrair-pdf.tsx
-
 import { useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-import { saveAs } from 'file-saver'; // Para salvar o arquivo ZIP retornado
+import { saveAs } from 'file-saver';
 
-// --- Tipos e Interfaces (Boas práticas com TypeScript) ---
+// --- Tipos e Interfaces ---
 type LogEntry = {
   dateTime: string;
   file: string;
@@ -23,63 +22,61 @@ type StatusMessage = {
 const ExtrairPdfPage: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const user = useUser(); // user pode ser null inicialmente
+  const user = useUser(); // MUDANÇA PRINCIPAL: Usaremos 'user' como fonte da verdade para autenticação.
 
-  // --- Estados para Gerenciamento do Componente (Migração do JS original) ---
+  // --- Estados do Componente ---
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true); // ADICIONADO: Estado para controlar o carregamento inicial
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'dividir' | 'logs'>('dividir');
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false); // Renomeado de isLoading para ser mais específico
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Efeito para Proteção de Rota e Verificação de Permissão ---
+  // MUDANÇA PRINCIPAL: Lógica de verificação de permissão foi refatorada
+  // para esperar o objeto 'user' estar disponível.
   useEffect(() => {
-    // CORREÇÃO REFINADA: Só executa a verificação se o cliente Supabase e o objeto 'user' existirem
-    if (!supabase || user === undefined) {
-        console.log("Supabase client ou user não disponível ainda, aguardando...");
-        return;
+    // Se o hook do Supabase ainda não carregou o usuário, não fazemos nada.
+    // Apenas esperamos.
+    if (!user) {
+        // Se após a verificação inicial o user continuar nulo, redireciona.
+        // Isso previne o loop caso o usuário acesse a URL diretamente sem estar logado.
+        const timer = setTimeout(() => {
+             if(!user) {
+                console.log("Sessão de usuário não encontrada, redirecionando para login.");
+                router.push('/login');
+             }
+        }, 1000); // Um pequeno delay para dar tempo da sessão ser hidratada
+        return () => clearTimeout(timer);
     }
 
-    const checkAuthAndPermissions = async () => {
-      // 1. Se o usuário não existe, redireciona para o login
-      if (!user) {
-        console.log('Sessão de usuário não encontrada, redirecionando para login.');
-        router.push('/login');
-        return;
-      }
+    const checkPermissions = async () => {
+      if (!supabase || !user) return;
 
-      // 2. Verifica se o usuário tem permissão para o módulo 'extrair-pdf'
-      console.log('Verificando permissões para User ID:', user.id, 'e módulo:', 'extrair-pdf');
       const { data: permission, error } = await supabase
         .from('permissoes')
         .select('ativo')
         .eq('user_id', user.id)
-        .eq('modulo_nome', 'extrair-pdf')
+        .eq('modulo_nome', 'extrair-pdf') // Nome do módulo correto
         .single();
 
-      if (error) {
-        console.error("Erro ao buscar permissão no Supabase:", error);
-        router.push('/dashboard?error=permission_fetch_failed');
-        return;
-      }
-
-      if (!permission?.ativo) {
-        console.log("Permissão não ativa para o módulo 'extrair-pdf' para o usuário:", user.id);
+      if (error || !permission?.ativo) {
+        console.error("Usuário não autorizado para este módulo. Redirecionando.");
         router.push('/dashboard?error=unauthorized');
       } else {
-        console.log("Usuário autorizado para 'extrair-pdf'.");
+        console.log("Usuário autorizado. Renderizando módulo.");
         setIsAuthorized(true);
       }
+      setIsLoadingPermissions(false);
     };
 
-    checkAuthAndPermissions();
-  }, [user, router, supabase]); // A dependência em 'user' garante que o efeito roda quando o estado de autenticação muda.
+    checkPermissions();
+  }, [user, supabase, router]);
 
-  // --- Funções de Lógica do Componente (Migração do JS original) ---
 
+  // --- Funções de Lógica do Componente (sem alterações significativas) ---
   const addLog = useCallback((action: string, result: LogEntry['result'], details: string = '', fileName?: string) => {
     const now = new Date();
     const newLog: LogEntry = {
@@ -89,7 +86,6 @@ const ExtrairPdfPage: FC = () => {
       result,
       details,
     };
-    // Adiciona o log mais recente no topo do array
     setLogs(prevLogs => [newLog, ...prevLogs]);
   }, [file?.name]);
 
@@ -97,11 +93,11 @@ const ExtrairPdfPage: FC = () => {
     if (selectedFile) {
       if (selectedFile.type === 'application/pdf') {
         setFile(selectedFile);
-        setStatusMessage(null); // Limpa mensagens de status anteriores
+        setStatusMessage(null);
         addLog('Seleção de Arquivo', 'Sucesso', 'Arquivo PDF selecionado.', selectedFile.name);
       } else {
         addLog('Seleção de Arquivo', 'Erro', 'Formato de arquivo inválido.', selectedFile.name);
-        setStatusMessage({ text: 'Erro: Por favor, selecione um arquivo PDF.', type: 'error' });
+        alert('Erro: Por favor, selecione um arquivo PDF.');
         setFile(null);
       }
     }
@@ -110,77 +106,58 @@ const ExtrairPdfPage: FC = () => {
   const handleRemoveFile = () => {
     setFile(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Limpa o input de arquivo
+      fileInputRef.current.value = '';
     }
     addLog('Remoção de Arquivo', 'Sucesso', 'Arquivo selecionado removido.');
   };
 
   const handleSubmit = async () => {
     if (!file) {
-      setStatusMessage({ text: 'Por favor, selecione um arquivo PDF primeiro.', type: 'error' });
+      alert('Por favor, selecione um arquivo PDF primeiro.');
       addLog('Processamento', 'Erro', 'Tentativa de processar sem arquivo selecionado.');
       return;
     }
 
-    setIsLoading(true);
+    setIsProcessing(true);
     setStatusMessage({ text: 'Enviando PDF para processamento...', type: 'processing' });
     addLog('Envio para Backend', 'Processando', 'Iniciando upload do PDF.');
 
     const formData = new FormData();
-    formData.append('pdfFile', file); // 'pdfFile' é a chave que o backend Flask espera
+    formData.append('pdfFile', file);
 
-    // A URL deve vir da sua variável de ambiente
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
     try {
-      const response = await fetch(`${apiUrl}/processar-pdf`, { // Endpoint do backend
+      const response = await fetch(`${apiUrl}/processar-pdf`, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        // Tenta extrair a mensagem de erro do JSON retornado pelo backend
         const errorData = await response.json();
         throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
       }
 
-      // O backend retorna um arquivo (blob), não um JSON
       const blob = await response.blob();
-      
-      // Tenta extrair o nome do arquivo do cabeçalho
       const contentDisposition = response.headers.get('content-disposition');
-      let filename = 'recibos_processados.zip'; // Nome padrão
+      let filename = 'recibos_processados.zip';
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1];
         }
       }
-
-      // Usa a biblioteca file-saver para iniciar o download
       saveAs(blob, filename);
-
       setStatusMessage({ text: `Arquivo ZIP '${filename}' baixado com sucesso!`, type: 'success' });
       addLog('Processamento e Download', 'Sucesso', `Arquivo ZIP '${filename}' baixado.`);
-
-    } catch (error: unknown) { // ALTERADO: de 'any' para 'unknown'
+    } catch (error: any) {
       console.error("Erro ao processar PDF:", error);
-      let errorMessage = 'Não foi possível conectar ao backend.';
-      if (error instanceof Error) { // Verificação de tipo para acessar 'message'
-        errorMessage = error.message;
-      }
+      const errorMessage = error.message || 'Não foi possível conectar ao backend.';
       setStatusMessage({ text: `Erro: ${errorMessage}`, type: 'error' });
       addLog('Processamento Backend', 'Erro', errorMessage);
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
-  };
-
-  // --- Funções de Drag & Drop ---
-  const handleDragEvents = (e: React.DragEvent<HTMLDivElement>, isEntering: boolean) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(isEntering);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -193,90 +170,73 @@ const ExtrairPdfPage: FC = () => {
     }
   };
   
-    const handleExportLogs = () => {
-        if (logs.length === 0) {
-            setStatusMessage({ text: 'Não há logs para exportar.', type: 'error' });
-            return;
-        }
-        const csvHeader = "Data/Hora,Arquivo,Ação,Resultado,Detalhes\n";
-        const csvRows = logs.map(log => 
-            `"${log.dateTime}","${log.file}","${log.action}","${log.result}","${log.details.replace(/"/g, '""')}"`
-        ).join('\n');
-        const csvContent = csvHeader + csvRows;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        saveAs(blob, `logs_extrator_pdf_${new Date().toISOString().slice(0,10)}.csv`);
-        addLog('Exportar Logs', 'Sucesso', 'Logs exportados para CSV.');
-    };
+  const handleExportLogs = () => {
+    if (logs.length === 0) {
+        alert('Não há logs para exportar.');
+        return;
+    }
+    const csvHeader = "Data/Hora,Arquivo,Ação,Resultado,Detalhes\n";
+    const csvRows = logs.map(log => `"${log.dateTime}","${log.file}","${log.action}","${log.result}","${log.details.replace(/"/g, '""')}"`).join('\n');
+    const csvContent = csvHeader + csvRows;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, `logs_extrator_pdf_${new Date().toISOString().slice(0,10)}.csv`);
+    addLog('Exportar Logs', 'Sucesso', 'Logs exportados para CSV.');
+  };
 
   // --- Renderização Condicional ---
-  // Enquanto a autorização é verificada, exibe uma mensagem de carregamento.
-  if (!isAuthorized) {
+  if (isLoadingPermissions) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-600">Verificando permissões...</p>
+        <p className="text-gray-600">Verificando permissões do módulo...</p>
       </div>
     );
   }
 
-  // O JSX do componente (convertido do seu Index.html)
+  if (!isAuthorized) {
+     // Se não estiver autorizado após a verificação, não renderiza nada ou mostra uma mensagem de erro.
+     // O redirecionamento já foi tratado no useEffect.
+     return null;
+  }
+
+  // Renderização principal do componente
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Top Bar - Mantém a consistência visual */}
       <header className="bg-white border-b border-gray-200 py-4 px-6">
         <h1 className="text-2xl font-semibold text-gray-800">
           {activeTab === 'dividir' ? 'Dividir PDFs' : 'Histórico de Processamento'}
         </h1>
       </header>
-
-      {/* Navegação por Abas simplificada */}
       <div className="p-6 border-b border-gray-200 bg-white">
         <nav className="flex space-x-4">
-            <button 
-                onClick={() => setActiveTab('dividir')}
-                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'dividir' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-            >
+            <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'dividir' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                 Dividir PDF
             </button>
-            <button 
-                onClick={() => setActiveTab('logs')}
-                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'logs' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-            >
+            <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'logs' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                 Logs
             </button>
         </nav>
       </div>
-
-      {/* Conteúdo da Aba */}
       <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-        {/* Aba "Dividir PDF" */}
         {activeTab === 'dividir' && (
           <div>
             <div className="bg-white rounded-lg shadow p-6 mb-6">
               <div
                 onDrop={handleDrop}
-                onDragOver={(e) => handleDragEvents(e, true)}
-                onDragEnter={(e) => handleDragEvents(e, true)}
-                onDragLeave={(e) => handleDragEvents(e, false)}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors duration-300 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
               >
                 <div className="flex flex-col items-center justify-center">
                   <i className="fas fa-cloud-upload-alt text-4xl text-blue-500 mb-3"></i>
                   <p className="text-gray-600 mb-1">Arraste e solte seu arquivo PDF aqui</p>
                   <p className="text-gray-500 text-sm mb-4">ou</p>
-                  <input
-                    type="file"
-                    id="file-input"
-                    className="hidden"
-                    accept=".pdf"
-                    ref={fileInputRef}
-                    onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)}
-                  />
+                  <input type="file" id="file-input" className="hidden" accept=".pdf" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} />
                   <label htmlFor="file-input" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out shadow-md cursor-pointer">
                     Selecionar PDF
                   </label>
                 </div>
               </div>
-
               {file && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
@@ -290,14 +250,13 @@ const ExtrairPdfPage: FC = () => {
                   </div>
                 </div>
               )}
-
               <div className="mt-6 flex justify-center">
                 <button
                   onClick={handleSubmit}
-                  disabled={!file || isLoading}
+                  disabled={!file || isProcessing}
                   className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (
+                  {isProcessing ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -305,33 +264,22 @@ const ExtrairPdfPage: FC = () => {
                       </svg>
                       Processando...
                     </>
-                  ) : (
-                    'Processar e Baixar PDF'
-                  )}
+                  ) : ( 'Processar e Baixar PDF' )}
                 </button>
               </div>
             </div>
-            
              {statusMessage && (
-                <div className={`mt-6 p-4 rounded-lg text-center ${
-                    statusMessage.type === 'success' ? 'bg-green-100 text-green-800' :
-                    statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                }`}>
+                <div className={`mt-6 p-4 rounded-lg text-center ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
                     {statusMessage.text}
                 </div>
             )}
           </div>
         )}
-
-        {/* Aba "Logs" */}
         {activeTab === 'logs' && (
           <div className="bg-white rounded-lg shadow p-6">
              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
-                <button 
-                    onClick={handleExportLogs}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-                >
+                <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
                     <i className="fas fa-download mr-2"></i> Exportar Logs
                 </button>
             </div>
@@ -348,16 +296,13 @@ const ExtrairPdfPage: FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {logs.length > 0 ? (
-                    logs.map((log) => (
-                      <tr key={log.dateTime + log.file}>
+                    logs.map((log, index) => (
+                      <tr key={index}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.dateTime}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs">{log.file}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.action}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            log.result === 'Sucesso' ? 'bg-green-100 text-green-800' : 
-                            log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                           }`}>
+                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ log.result === 'Sucesso' ? 'bg-green-100 text-green-800' :  log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
                                 {log.result}
                            </span>
                         </td>
