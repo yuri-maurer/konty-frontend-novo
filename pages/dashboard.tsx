@@ -1,4 +1,6 @@
 // pages/dashboard.tsx
+console.log("--- EXECUTANDO A VERSÃO CORRIGIDA V3 DO DASHBOARD ---"); // Linha de verificação
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
