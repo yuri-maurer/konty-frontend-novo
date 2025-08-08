@@ -1,12 +1,12 @@
 // pages/dashboard.tsx
-// Passo 3: polimento visual (container central, cards-resumo com alturas iguais e grid refinado)
+// Passo 4.3: cards de métricas com ícones + grid responsivo (2–4 colunas) e espaçamento mais compacto
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ModuleCard from '../components/dashboard/ModuleCard';
 import { AiOutlineFilePdf, AiOutlineCalculator } from 'react-icons/ai';
-import { FaUsers, FaStar } from 'react-icons/fa';
+import { FaUsers } from 'react-icons/fa';
 
 interface ModuleDefinition {
   name: string;
@@ -132,27 +132,48 @@ const DashboardPage = () => {
 
   return (
     <DashboardLayout modules={allowedModules}>
-      {/* Cards informativos com alturas iguais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
-          <p className="text-sm text-gray-500">Módulos Ativos</p>
-          <p className="text-3xl font-bold text-gray-800">{ativos}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">Favoritos</p>
-            <FaStar className="text-yellow-400" />
+      {/* Cards informativos compactos com ícones */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Módulos Ativos</p>
+            <p className="text-2xl font-bold text-gray-800">{ativos}</p>
           </div>
-          <p className="text-3xl font-bold text-gray-800">{favs}</p>
+        <div className="w-10 h-10 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center">
+            {/* check icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
-          <p className="text-sm text-gray-500">Ações Pendentes</p>
-          <p className="text-3xl font-bold text-gray-800">{pendencias}</p>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Favoritos</p>
+            <p className="text-2xl font-bold text-gray-800">{favs}</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center justify-center">
+            {/* star icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#ca8a04">
+              <path d="M12 17.27L18.18 21 16.54 13.97 22 9.24 14.81 8.62 12 2 9.19 8.62 2 9.24 7.46 13.97 5.82 21z"/>
+            </svg>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Ações Pendentes</p>
+            <p className="text-2xl font-bold text-gray-800">{pendencias}</p>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center">
+            {/* alert icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </div>
       </div>
 
-      <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Módulos</h1>
-      <p className="text-sm text-gray-500 mb-6">Acesse rapidamente os módulos disponíveis para o seu perfil.</p>
+      <h1 className="text-3xl font-bold text-gray-900 mb-1">Módulos</h1>
+      <p className="text-sm text-gray-500 mb-5">Acesse rapidamente os módulos disponíveis para o seu perfil.</p>
 
       {filtered.length === 0 ? (
         <div className="text-center py-10 px-6 bg-white rounded-xl shadow-sm border border-gray-200">
@@ -161,7 +182,8 @@ const DashboardPage = () => {
         </div>
       ) : (
         <div className="w-full flex justify-center">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {/* Grid 2–4 colunas com gaps menores */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((mod) => (
               <ModuleCard
                 key={mod.path}

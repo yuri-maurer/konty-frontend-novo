@@ -44,12 +44,12 @@ export default function ModuleCard({
 
   return (
     <div
-      className={`group relative bg-white border ${borderColor} rounded-xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer`}
+      className={`group relative bg-white border ${borderColor} rounded-xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
       onClick={go}
     >
       {/* Status badge */}
       {status && (
-        <span className={`absolute -top-2 left-4 px-2 py-0.5 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
+        <span className={`absolute -top-2 left-4 px-2 py-0.5 text-[10px] font-semibold rounded-full ${statusStyles[status]}`}>
           {status}
         </span>
       )}
@@ -69,12 +69,12 @@ export default function ModuleCard({
         </button>
       )}
 
-      <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-gray-100 transition">
-          <Icon size={28} className="text-blue-600" />
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-gray-100 transition">
+          <Icon size={22} className="text-blue-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           {description && (
             <p className="mt-1 text-sm text-gray-600 line-clamp-2">{description}</p>
           )}
