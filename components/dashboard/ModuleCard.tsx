@@ -1,8 +1,9 @@
 // components/dashboard/ModuleCard.tsx
-// This card displays module information with favorite toggle and status badge.
 import { useRouter } from 'next/router';
 import type { IconType } from 'react-icons';
-import { FaStar, FaRegStar } from 'react-icons/fa';
+import { FaRegStar, FaStar } from 'react-icons/fa';
+
+type Status = 'Novo' | 'Beta' | 'Em breve' | 'Restrito';
 
 interface ModuleCardProps {
   title: string;
@@ -10,108 +11,78 @@ interface ModuleCardProps {
   icon: IconType;
   description?: string;
   category?: string;
-  status?: 'Novo' | 'Beta' | 'Em breve' | 'Restrito';
-  isFavorite: boolean;
-  onToggleFavorite: () => void;
-  color?: string;
+  status?: Status;
+  color?: 'blue' | 'green' | 'red';
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-// Mapping to set colors for different status badges
-const statusStyles: Record<string, string> = {
-  Novo: 'bg-blue-100 text-blue-800',
-  Beta: 'bg-purple-100 text-purple-800',
-  'Em breve': 'bg-gray-100 text-gray-800',
-  Restrito: 'bg-amber-100 text-amber-800',
+const statusStyles: Record<Status, string> = {
+  'Novo': 'bg-blue-100 text-blue-700',
+  'Beta': 'bg-purple-100 text-purple-700',
+  'Em breve': 'bg-gray-100 text-gray-700',
+  'Restrito': 'bg-amber-100 text-amber-800',
 };
 
-const ModuleCard: React.FC<ModuleCardProps> = ({
+export default function ModuleCard({
   title,
   path,
   icon: Icon,
   description,
   category,
   status,
-  isFavorite,
-  onToggleFavorite,
   color = 'blue',
-}) => {
+  isFavorite = false,
+  onToggleFavorite,
+}: ModuleCardProps) {
   const router = useRouter();
-  const handleNavigate = () => {
-    router.push(path);
-  };
 
-  // Determine base styling classes based on the color property
-  let baseClass = '';
-  let hoverClass = '';
-  let iconClass = '';
-  switch (color) {
-    case 'green':
-      baseClass = 'bg-green-50';
-      hoverClass = 'hover:bg-green-600';
-      iconClass = 'text-green-600';
-      break;
-    case 'red':
-      baseClass = 'bg-red-50';
-      hoverClass = 'hover:bg-red-600';
-      iconClass = 'text-red-600';
-      break;
-    case 'blue':
-    default:
-      baseClass = 'bg-blue-50';
-      hoverClass = 'hover:bg-blue-600';
-      iconClass = 'text-blue-600';
-      break;
-  }
+  const go = () => router.push(path);
+
+  const borderColor =
+    color === 'green' ? 'border-green-200' : color === 'red' ? 'border-red-200' : 'border-blue-200';
 
   return (
     <div
-      onClick={handleNavigate}
-      className={`group relative flex flex-col p-6 rounded-lg shadow-md cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${baseClass} ${hoverClass}`}
+      className={`group relative bg-white border ${borderColor} rounded-xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer`}
+      onClick={go}
     >
-      {/* Favorite star toggle button */}
-      <button
-        className="absolute top-2 right-2 z-10 p-1 rounded-full bg-white shadow hover:bg-gray-100"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFavorite();
-        }}
-      >
-        {isFavorite ? (
-          <FaStar className="text-yellow-400" size={18} />
-        ) : (
-          <FaRegStar className="text-gray-400 group-hover:text-yellow-400" size={18} />
-        )}
-      </button>
-
-      {/* Status badge showing module state */}
+      {/* Status badge */}
       {status && (
-        <span
-          className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-            statusStyles[status]
-          }`}
-        >
+        <span className={`absolute -top-2 left-4 px-2 py-0.5 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
           {status}
         </span>
       )}
 
-      {/* Icon representation of the module */}
-      <Icon
-        size={42}
-        className={`mb-4 ${iconClass} transition-colors duration-300 group-hover:text-white`}
-      />
+      {/* Favorite */}
+      {onToggleFavorite && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite();
+          }}
+          className="absolute top-3 right-3 text-gray-400 hover:text-yellow-500 transition"
+          aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          title={isFavorite ? 'Desfavoritar' : 'Favoritar'}
+        >
+          {isFavorite ? <FaStar /> : <FaRegStar />}
+        </button>
+      )}
 
-      {/* Module title */}
-      <h3 className="text-lg font-semibold text-gray-800 mb-1 transition-colors duration-300 group-hover:text-white">
-        {title}
-      </h3>
-
-      {/* Module description truncated to one line */}
-      {description && <p className="text-sm text-gray-600 mb-1 truncate">{description}</p>}
-
-      {/* Category label */}
-      {category && <span className="text-xs font-medium text-gray-500">{category}</span>}
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-gray-100 transition">
+          <Icon size={28} className="text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          {description && (
+            <p className="mt-1 text-sm text-gray-600 line-clamp-2">{description}</p>
+          )}
+          {category && (
+            <p className="mt-2 text-xs text-gray-500">{category}</p>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
-
-export default ModuleCard;
+}

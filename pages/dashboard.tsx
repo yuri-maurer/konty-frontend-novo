@@ -1,5 +1,5 @@
 // pages/dashboard.tsx
-// Passo 2: Busca global funcional na Topbar (evento 'global-search') + cards informativos
+// Passo 3: polimento visual (container central, cards-resumo com alturas iguais e grid refinado)
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -58,7 +58,7 @@ const DashboardPage = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [globalQuery, setGlobalQuery] = useState('');
 
-  // Ouve o evento 'global-search' vindo da Topbar
+  // Ouve a busca global
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string>).detail || '';
@@ -122,52 +122,46 @@ const DashboardPage = () => {
 
   const ativos = allowedModules.length;
   const favs = favorites.filter((p) => allowedModules.some((m) => m.path === p)).length;
-  const pendencias = 0; // placeholder
+  const pendencias = 0;
 
-  // Filtro por busca global (nome + descrição)
   const filtered = allowedModules.filter((m) => {
     if (!globalQuery) return true;
     const q = globalQuery.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(q) ||
-      (m.description || '').toLowerCase().includes(q)
-    );
+    return m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q);
   });
 
   return (
     <DashboardLayout modules={allowedModules}>
-      {/* Cards informativos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+      {/* Cards informativos com alturas iguais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
           <p className="text-sm text-gray-500">Módulos Ativos</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">{ativos}</p>
+          <p className="text-3xl font-bold text-gray-800">{ativos}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">Favoritos</p>
             <FaStar className="text-yellow-400" />
           </div>
-          <p className="text-3xl font-bold text-gray-800 mt-1">{favs}</p>
+          <p className="text-3xl font-bold text-gray-800">{favs}</p>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[100px] flex flex-col justify-between">
           <p className="text-sm text-gray-500">Ações Pendentes</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">{pendencias}</p>
+          <p className="text-3xl font-bold text-gray-800">{pendencias}</p>
         </div>
       </div>
 
-      {/* Título e espaçamento refinados */}
-      <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">Módulos</h1>
+      <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Módulos</h1>
       <p className="text-sm text-gray-500 mb-6">Acesse rapidamente os módulos disponíveis para o seu perfil.</p>
 
-      {/* Grid de módulos centralizado */}
       {filtered.length === 0 ? (
-        <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
+        <div className="text-center py-10 px-6 bg-white rounded-xl shadow-sm border border-gray-200">
           <p className="text-gray-600">Nenhum módulo encontrado.</p>
           <p className="text-sm text-gray-500 mt-2">Tente ajustar a busca ou limpar o campo (Esc).</p>
         </div>
       ) : (
         <div className="w-full flex justify-center">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {filtered.map((mod) => (
               <ModuleCard
                 key={mod.path}
