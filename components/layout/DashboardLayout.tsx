@@ -16,25 +16,23 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) => {
   return (
+    // O contêiner principal que ocupa 100% da altura da tela (h-screen)
+    // e organiza os filhos (Sidebar e main) em linha (flex)
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Renderiza a Sidebar, passando os módulos permitidos */}
       <Sidebar modules={modules} />
       
-      {/*
-        * CORREÇÃO DE LAYOUT:
-        * - 'flex flex-col': Transforma o main em um contêiner de coluna flexível.
-        * - 'flex-1': Garante que ele ocupe o espaço restante.
-        * - 'overflow-hidden': Impede que o próprio main tenha uma barra de rolagem.
-        */}
-      <main className="flex flex-col flex-1 overflow-hidden">
-        {/*
-         * - A rolagem e o padding foram movidos para este div interno.
-         * - 'flex-1': Faz com que este div cresça para preencher o <main>.
-         * - 'overflow-y-auto': Adiciona a barra de rolagem apenas aqui.
-         */}
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+      {/* * ESTA É A CORREÇÃO PRINCIPAL
+        * 'flex-1': Faz esta área principal ocupar todo o espaço horizontal restante.
+        * 'flex flex-col': Transforma a área principal num contêiner de coluna.
+        * Isso permite que o conteúdo filho (children) use 'flex-1' ou 'h-full' para preencher a altura.
+      */}
+      <main className="flex flex-col flex-1 overflow-y-hidden">
+          {/* * O 'children' (seu módulo) é renderizado aqui. 
+           * Como o pai (<main>) agora é um contêiner flexível de coluna,
+           * o 'h-full' que colocámos no 'extrair-pdf.tsx' finalmente terá efeito.
+           * O padding foi removido daqui para dar controlo total ao componente filho.
+          */}
           {children}
-        </div>
       </main>
     </div>
   );
