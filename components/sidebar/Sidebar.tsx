@@ -12,7 +12,7 @@ const STORAGE_KEY = 'sidebar:view';
 interface Module {
   name: string;
   path: string;
-  icon: IconType;
+  icon: IconType; // mantido por compat, mas NÃO é usado na lista do painel
 }
 
 interface SidebarProps {
@@ -37,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
-  // Hidrata favoritos uma única vez
   useEffect(() => {
     try {
       const raw = localStorage.getItem('moduleFavorites');
@@ -46,7 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     setFavHydrated(true);
   }, []);
 
-  // Ouve eventos globais para manter sincronia em tempo real
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string[]>).detail || [];
@@ -56,7 +54,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     return () => window.removeEventListener('favorites-updated', handler as EventListener);
   }, []);
 
-  // Ouve alterações no localStorage (outras abas/janelas)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'moduleFavorites') {
@@ -67,7 +64,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // Persiste no localStorage + emite evento global (somente após hidratar)
   useEffect(() => {
     if (!favHydrated) return;
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
@@ -85,7 +81,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
 
-  // Carrega a última view da sessão
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem(STORAGE_KEY) as View | null;
@@ -95,13 +90,11 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     } catch {}
   }, []);
 
-  // Mantém foco acessível ao trocar de view
   useEffect(() => {
     const el = view === 'root' ? rootFirstRef.current : panelFirstRef.current;
     el?.focus();
   }, [view]);
 
-  // ESC volta ao root
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && view !== 'root') {
@@ -119,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     router.push('/login');
   };
 
-  const panelList: Module[] = useMemo(() => {
+  const panelList = useMemo(() => {
     if (view === 'modulos') return modules;
     if (view === 'favoritos') return modules.filter(m => favorites.includes(m.path));
     return [];
@@ -218,10 +211,11 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                         <button
                           ref={idx === 0 ? panelFirstRef : undefined}
                           onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, view); } catch {} ; router.push(m.path); }}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
                           title={m.name}
                         >
-                          {m.icon ? <m.icon className={`text-base ${isActive ? 'text-blue-700' : 'text-gray-500'}`} /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />}
+                          {/* ÍCONE DE MÓDULO REMOVIDO — usamos apenas o marcador */}
+                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
                           <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
                         </button>
                         <button
