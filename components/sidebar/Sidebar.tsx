@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { FiHome, FiStar, FiPackage, FiChevronRight } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 
 type View = 'root' | 'favoritos' | 'modulos';
@@ -104,29 +105,38 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <Link
               href="/dashboard"
               ref={rootFirstRef as any}
-              className={`flex items-center justify-between px-3 py-2 rounded-md transition ${
+              className={`flex items-center justify-between px-3 py-2 rounded-md transition group ${
                 isActiveRoot('/dashboard') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <span>🏠 Início</span>
+              <span className="flex items-center gap-2">
+                <FiHome className="group-hover:text-blue-500" />
+                Início
+              </span>
             </Link>
             <button
-              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition ${
+              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition group ${
                 view === 'favoritos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
               onClick={() => setView('favoritos')}
             >
-              <span>⭐ Favoritos</span>
-              <span className={`transform transition-transform ${view === 'favoritos' ? 'rotate-90' : ''}`}>▶</span>
+              <span className="flex items-center gap-2">
+                <FiStar className="group-hover:text-blue-500" />
+                Favoritos
+              </span>
+              <FiChevronRight />
             </button>
             <button
-              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition ${
+              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition group ${
                 view === 'modulos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
               onClick={() => setView('modulos')}
             >
-              <span>📦 Módulos</span>
-              <span className={`transform transition-transform ${view === 'modulos' ? 'rotate-90' : ''}`}>▶</span>
+              <span className="flex items-center gap-2">
+                <FiPackage className="group-hover:text-blue-500" />
+                Módulos
+              </span>
+              <FiChevronRight />
             </button>
           </div>
 
