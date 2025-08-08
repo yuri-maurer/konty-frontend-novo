@@ -75,16 +75,19 @@ const DashboardPage = () => {
     <DashboardLayout modules={allowedModules}>
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Módulos Disponíveis</h1>
       {allowedModules.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {allowedModules.map((module: any) => (
-            <ModuleCard
-              key={module.path}
-              title={module.name}
-              path={module.path}
-              icon={module.icon}
-              color={module.color}
-            />
-          ))}
+        // Envolver o grid em um contêiner flex para centralizar os cartões quando houver poucos módulos
+        <div className="w-full flex justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {allowedModules.map((module: any) => (
+              <ModuleCard
+                key={module.path}
+                title={module.name}
+                path={module.path}
+                icon={module.icon}
+                color={module.color}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
