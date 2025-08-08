@@ -19,6 +19,19 @@
   }
 }
 
+/*
+ * CORREÇÃO DEFINITIVA PARA O CORTE NA TELA
+ * Estas regras garantem que a base da página (html, body) e o contêiner
+ * principal do Next.js (div#__next) ocupem 100% da altura da janela do navegador.
+ * Isto resolve o problema da "área preta" na parte inferior.
+*/
+html,
+body,
+body > div:first-child,
+div#__next {
+  height: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
