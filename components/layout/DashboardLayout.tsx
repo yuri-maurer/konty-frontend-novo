@@ -1,5 +1,5 @@
 // components/layout/DashboardLayout.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Sidebar from '../sidebar/Sidebar';
 import type { IconType } from 'react-icons';
 import { AiOutlineSearch } from 'react-icons/ai';
@@ -17,6 +17,54 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Emite o evento global para que páginas (ex.: dashboard) filtrem pela busca
+  const emitSearch = (value: string) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('global-search', { detail: value }));
+    }
+  };
+
+  // Atalhos: "/" foca, "Esc" limpa
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
+
+      // Atalho: "/" para focar a busca (se não estiver digitando em outro campo)
+      if (e.key === '/' && !isTyping) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+
+      // "Esc" limpa
+      if (e.key === 'Escape') {
+        if (document.activeElement === inputRef.current || !isTyping) {
+          setQuery('');
+          emitSearch('');
+          inputRef.current?.blur();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Atualiza e emite a cada digitação
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    emitSearch(value);
+  };
+
+  // Botão de limpar (X)
+  const clear = () => {
+    setQuery('');
+    emitSearch('');
+    inputRef.current?.focus();
+  };
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -45,14 +93,26 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
             <span className="text-lg font-semibold text-gray-800">Konty Sistemas</span>
           </div>
 
-          {/* Busca placeholder (funcional em passo futuro) */}
-          <div className="hidden md:flex items-center bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-72">
+          {/* Busca funcional (global) */}
+          <div className="hidden md:flex items-center bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-80">
             <AiOutlineSearch className="text-gray-500 mr-2" size={18} />
             <input
-              disabled
-              className="bg-transparent outline-none text-sm text-gray-600 placeholder:text-gray-400 w-full"
-              placeholder="Buscar (atalho /) — em breve"
+              ref={inputRef}
+              value={query}
+              onChange={onChange}
+              className="bg-transparent outline-none text-sm text-gray-700 placeholder:text-gray-400 w-full"
+              placeholder="Buscar (atalho /)"
             />
+            {query && (
+              <button
+                onClick={clear}
+                className="ml-2 text-gray-400 hover:text-gray-600"
+                aria-label="Limpar busca"
+                title="Limpar"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

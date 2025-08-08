@@ -1,5 +1,5 @@
 // pages/dashboard.tsx
-// Passo 1: Topbar (no layout), Sidebar colapsável e cards informativos no topo
+// Passo 2: Busca global funcional na Topbar (evento 'global-search') + cards informativos
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -56,6 +56,17 @@ const DashboardPage = () => {
   const [allowedModules, setAllowedModules] = useState<ModuleDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [globalQuery, setGlobalQuery] = useState('');
+
+  // Ouve o evento 'global-search' vindo da Topbar
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail || '';
+      setGlobalQuery(detail);
+    };
+    window.addEventListener('global-search', handler as EventListener);
+    return () => window.removeEventListener('global-search', handler as EventListener);
+  }, []);
 
   // Permissões
   useEffect(() => {
@@ -113,6 +124,16 @@ const DashboardPage = () => {
   const favs = favorites.filter((p) => allowedModules.some((m) => m.path === p)).length;
   const pendencias = 0; // placeholder
 
+  // Filtro por busca global (nome + descrição)
+  const filtered = allowedModules.filter((m) => {
+    if (!globalQuery) return true;
+    const q = globalQuery.toLowerCase();
+    return (
+      m.name.toLowerCase().includes(q) ||
+      (m.description || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <DashboardLayout modules={allowedModules}>
       {/* Cards informativos */}
@@ -139,15 +160,15 @@ const DashboardPage = () => {
       <p className="text-sm text-gray-500 mb-6">Acesse rapidamente os módulos disponíveis para o seu perfil.</p>
 
       {/* Grid de módulos centralizado */}
-      {allowedModules.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
-          <p className="text-gray-600">Nenhum módulo disponível.</p>
-          <p className="text-sm text-gray-500 mt-2">Solicite acesso ao administrador do sistema.</p>
+          <p className="text-gray-600">Nenhum módulo encontrado.</p>
+          <p className="text-sm text-gray-500 mt-2">Tente ajustar a busca ou limpar o campo (Esc).</p>
         </div>
       ) : (
         <div className="w-full flex justify-center">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {allowedModules.map((mod) => (
+            {filtered.map((mod) => (
               <ModuleCard
                 key={mod.path}
                 title={mod.name}
