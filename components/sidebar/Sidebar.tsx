@@ -33,14 +33,17 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
+  // ---------- Favoritos ----------
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favHydrated, setFavHydrated] = useState(false);
 
-  // Carrega favoritos iniciais
+  // Hidrata favoritos uma única vez
   useEffect(() => {
     try {
       const raw = localStorage.getItem('moduleFavorites');
       if (raw) setFavorites(JSON.parse(raw));
     } catch {}
+    setFavHydrated(true);
   }, []);
 
   // Ouve eventos globais para manter sincronia em tempo real
@@ -64,19 +67,20 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  // Persiste no localStorage + emite evento global
+  // Persiste no localStorage + emite evento global (somente após hidratar)
   useEffect(() => {
+    if (!favHydrated) return;
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
     }
-  }, [favorites]);
+  }, [favorites, favHydrated]);
 
   const toggleFavorite = (path: string) => {
     setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
   };
 
-  // -------------------------------- Sidebar view (root / painel) --------------------------------
+  // ---------- Navegação em 2 níveis ----------
   const [view, setView] = useState<View>('root');
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
