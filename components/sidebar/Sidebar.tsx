@@ -17,7 +17,6 @@ interface SidebarProps {
   modules: Module[];
   collapsed?: boolean;
   onToggle?: () => void;
-  // mantido apenas para compatibilidade com o layout atual (ignorado aqui)
   onOpenPanel?: (type: 'favoritos' | 'modulos') => void;
 }
 
@@ -32,7 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
-  // ---------- Favoritos (localStorage: "moduleFavorites") ----------
   const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
@@ -53,18 +51,15 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
   };
 
-  // ---------- Navegação em 2 níveis dentro da PRÓPRIA sidebar ----------
   const [view, setView] = useState<View>('root');
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
 
-  // Foco ao trocar de view (acessibilidade)
   useEffect(() => {
     const el = view === 'root' ? rootFirstRef.current : panelFirstRef.current;
     el?.focus();
   }, [view]);
 
-  // ESC volta ao root
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && view !== 'root') {
@@ -81,12 +76,13 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     router.push('/login');
   };
 
-  // Lista a renderizar no painel
   const panelList: Module[] = useMemo(() => {
     if (view === 'modulos') return modules;
     if (view === 'favoritos') return modules.filter(m => favorites.includes(m.path));
     return [];
   }, [view, modules, favorites]);
+
+  const isActiveRoot = (path: string) => router.pathname === path;
 
   return (
     <aside className="bg-white flex flex-col border-r border-gray-200 w-[280px] overflow-hidden">
@@ -97,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
         </Link>
       </div>
 
-      {/* Área deslizável: ROOT ↔ PAINEL (sem criar nova coluna) */}
+      {/* Área deslizável: ROOT ↔ PAINEL */}
       <div className="relative flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 flex transition-transform duration-300 ease-out ${view === 'root' ? 'translate-x-0' : '-translate-x-1/2'}`}
@@ -108,21 +104,29 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <Link
               href="/dashboard"
               ref={rootFirstRef as any}
-              className={`block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition ${router.pathname === '/dashboard' ? 'bg-gray-100 font-semibold' : ''}`}
+              className={`flex items-center justify-between px-3 py-2 rounded-md transition ${
+                isActiveRoot('/dashboard') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+              }`}
             >
-              Início
+              <span>🏠 Início</span>
             </Link>
             <button
-              className="text-left px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition"
+              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition ${
+                view === 'favoritos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+              }`}
               onClick={() => setView('favoritos')}
             >
-              Favoritos
+              <span>⭐ Favoritos</span>
+              <span className={`transform transition-transform ${view === 'favoritos' ? 'rotate-90' : ''}`}>▶</span>
             </button>
             <button
-              className="text-left px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition"
+              className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition ${
+                view === 'modulos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+              }`}
               onClick={() => setView('modulos')}
             >
-              Módulos
+              <span>📦 Módulos</span>
+              <span className={`transform transition-transform ${view === 'modulos' ? 'rotate-90' : ''}`}>▶</span>
             </button>
           </div>
 
