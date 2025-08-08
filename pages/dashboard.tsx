@@ -16,7 +16,6 @@ interface ModuleDef {
   color?: string;
 }
 
-// Catálogo central de módulos (ajuste/expanda conforme seu projeto)
 const ALL_MODULES: Record<string, ModuleDef> = {
   'extrair-pdf': {
     key: 'extrair-pdf',
@@ -27,16 +26,6 @@ const ALL_MODULES: Record<string, ModuleDef> = {
     status: 'Ativo',
     color: 'blue',
   },
-  // Exemplo adicional
-  'calculadora-icms': {
-    key: 'calculadora-icms',
-    name: 'Calculadora ICMS',
-    path: '/modulos/calculadora-icms',
-    description: 'Auxilia nos cálculos de ICMS.',
-    category: 'Fiscal',
-    status: 'Pendente',
-    color: 'emerald',
-  },
 };
 
 export default function DashboardPage() {
@@ -44,7 +33,6 @@ export default function DashboardPage() {
   const user = useUser();
   const supabase = useSupabaseClient();
 
-  // Permissões -> módulos liberados
   const [allowedKeys, setAllowedKeys] = useState<string[]>([]);
   const [loadingPerms, setLoadingPerms] = useState(true);
 
@@ -62,7 +50,6 @@ export default function DashboardPage() {
         const keys = (data || []).map((r: any) => r.modulo_nome).filter(Boolean);
         if (isMounted) setAllowedKeys(keys);
       } catch {
-        // fallback: libera tudo se houver falha (evita travar o dashboard)
         if (isMounted) setAllowedKeys(Object.keys(ALL_MODULES));
       } finally {
         if (isMounted) setLoadingPerms(false);
@@ -72,16 +59,13 @@ export default function DashboardPage() {
     return () => { isMounted = false; };
   }, [supabase, user]);
 
-  // Lista final de módulos permitidos
   const allowedModules = useMemo<ModuleDef[]>(() => {
     const keys = allowedKeys.length ? allowedKeys : Object.keys(ALL_MODULES);
     return keys.map((k) => ALL_MODULES[k]).filter(Boolean);
   }, [allowedKeys]);
 
-  // Favoritos (array de paths) + sincronização via evento
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // Carrega favoritos do localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('moduleFavorites');
@@ -89,7 +73,6 @@ export default function DashboardPage() {
     } catch {}
   }, []);
 
-  // Persiste e EMITE favorites-updated quando mudar
   useEffect(() => {
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
@@ -98,13 +81,9 @@ export default function DashboardPage() {
   }, [favorites]);
 
   const toggleFavorite = (path: string) => {
-    setFavorites((prev) => {
-      const has = prev.includes(path);
-      return has ? prev.filter((p) => p !== path) : [...prev, path];
-    });
+    setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
   };
 
-  // Busca global (ouvir evento do Layout)
   const [query, setQuery] = useState('');
   useEffect(() => {
     const handler = (e: Event) => {
@@ -124,21 +103,10 @@ export default function DashboardPage() {
     });
   }, [allowedModules, query]);
 
-  if (loadingPerms && !allowedModules.length) {
-    return (
-      <DashboardLayout
-        modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
-      >
-        <div className="text-sm text-gray-600">Carregando…</div>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout
       modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
     >
-      {/* Cards de métricas simples */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Módulos ativos</p>
@@ -162,7 +130,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Lista de módulos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.length === 0 ? (
           <div className="col-span-full bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500">
@@ -188,12 +155,7 @@ export default function DashboardPage() {
                   <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs border border-gray-200 text-gray-600">
                     {m.category || 'Geral'}
                   </span>
-                  <a
-                    href={m.path}
-                    className="text-sm font-medium text-blue-700 hover:underline"
-                  >
-                    Abrir
-                  </a>
+                  <a href={m.path} className="text-sm font-medium text-blue-700 hover:underline">Abrir</a>
                 </div>
               </div>
             );
