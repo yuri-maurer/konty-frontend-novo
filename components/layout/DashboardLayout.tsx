@@ -1,8 +1,9 @@
 // components/layout/DashboardLayout.tsx
+import React, { useState } from 'react';
 import Sidebar from '../sidebar/Sidebar';
 import type { IconType } from 'react-icons';
+import { AiOutlineSearch } from 'react-icons/ai';
 
-// Define a estrutura de um módulo para a Sidebar
 interface Module {
   name: string;
   path: string;
@@ -11,28 +12,62 @@ interface Module {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  modules: Module[]; // Recebe a lista de módulos para passar para a Sidebar
+  modules: Module[];
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) => {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    // O contêiner principal que ocupa 100% da altura da tela (h-screen)
-    // e organiza os filhos (Sidebar e main) em linha (flex)
     <div className="flex h-screen bg-gray-100 font-sans">
-      <Sidebar modules={modules} />
-      
-      {/* * ESTA É A CORREÇÃO PRINCIPAL
-        * 'flex-1': Faz esta área principal ocupar todo o espaço horizontal restante.
-        * 'flex flex-col': Transforma a área principal num contêiner de coluna.
-        * Isso permite que o conteúdo filho (children) use 'flex-1' ou 'h-full' para preencher a altura.
-      */}
+      <Sidebar
+        modules={modules}
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((c) => !c)}
+      />
+
+      {/* Área principal */}
       <main className="flex flex-col flex-1 overflow-y-hidden">
-          {/* * O 'children' (seu módulo) é renderizado aqui. 
-           * Como o pai (<main>) agora é um contêiner flexível de coluna,
-           * o 'h-full' que colocámos no 'extrair-pdf.tsx' finalmente terá efeito.
-           * O padding foi removido daqui para dar controlo total ao componente filho.
-          */}
+        {/* Topbar fixa */}
+        <header className="h-16 flex items-center justify-between px-4 bg-white border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              className="px-2 py-1 rounded-md hover:bg-gray-100 transition"
+              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+              title={collapsed ? "Expandir menu" : "Recolher menu"}
+            >
+              {/* Ícone simples de menu */}
+              <div className="w-5 h-0.5 bg-gray-700 mb-1" />
+              <div className="w-5 h-0.5 bg-gray-700 mb-1" />
+              <div className="w-5 h-0.5 bg-gray-700" />
+            </button>
+            <span className="text-lg font-semibold text-gray-800">Konty Sistemas</span>
+          </div>
+
+          {/* Busca placeholder (funcional em passo futuro) */}
+          <div className="hidden md:flex items-center bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-72">
+            <AiOutlineSearch className="text-gray-500 mr-2" size={18} />
+            <input
+              disabled
+              className="bg-transparent outline-none text-sm text-gray-600 placeholder:text-gray-400 w-full"
+              placeholder="Buscar (atalho /) — em breve"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-md transition">
+              + Novo Módulo
+            </button>
+            {/* Avatar placeholder */}
+            <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300" title="Perfil" />
+          </div>
+        </header>
+
+        {/* Conteúdo rolável */}
+        <section className="flex-1 overflow-y-auto p-6">
           {children}
+        </section>
       </main>
     </div>
   );
