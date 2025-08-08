@@ -35,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
 
   const [favorites, setFavorites] = useState<string[]>([]);
 
+  // Carrega favoritos iniciais
   useEffect(() => {
     try {
       const raw = localStorage.getItem('moduleFavorites');
@@ -42,6 +43,28 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     } catch {}
   }, []);
 
+  // Ouve eventos globais para manter sincronia em tempo real
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string[]>).detail || [];
+      setFavorites(Array.isArray(detail) ? detail : []);
+    };
+    window.addEventListener('favorites-updated', handler as EventListener);
+    return () => window.removeEventListener('favorites-updated', handler as EventListener);
+  }, []);
+
+  // Ouve alterações no localStorage (outras abas/janelas)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'moduleFavorites') {
+        try { setFavorites(JSON.parse(e.newValue || '[]')); } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Persiste no localStorage + emite evento global
   useEffect(() => {
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
@@ -53,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
   };
 
+  // -------------------------------- Sidebar view (root / painel) --------------------------------
   const [view, setView] = useState<View>('root');
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
@@ -190,17 +214,18 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                         <button
                           ref={idx === 0 ? panelFirstRef : undefined}
                           onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, view); } catch {} ; router.push(m.path); }}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
                           title={m.name}
                         >
-                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
+                          {m.icon ? <m.icon className={`text-base ${isActive ? 'text-blue-700' : 'text-gray-500'}`} /> : <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />}
                           <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
                         </button>
                         <button
-                          onClick={() => toggleFavorite(m.path)}
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(m.path); }}
                           title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                          className={`p-3 text-2xl rounded-md drop-shadow-sm transition ${isFav ? 'text-yellow-400' : 'text-gray-500'} hover:scale-110`}
+                          className={`shrink-0 p-3 text-2xl rounded-md drop-shadow-sm transition ${isFav ? 'text-yellow-400' : 'text-gray-500'} hover:scale-110`}
                           aria-label={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                          type="button"
                         >
                           {isFav ? '★' : '☆'}
                         </button>
