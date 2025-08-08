@@ -190,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                         <button
                           ref={idx === 0 ? panelFirstRef : undefined}
                           onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, view); } catch {} ; router.push(m.path); }}
-                          className={`flex items-center gap-3 px-2 py-2 rounded-md text-left flex-1 hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
                           title={m.name}
                         >
                           <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                         <button
                           onClick={() => toggleFavorite(m.path)}
                           title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                          className={`px-2 py-1 text-sm rounded-md ${isFav ? 'text-yellow-600' : 'text-gray-300'}`}
+                          className={`p-2 text-lg rounded-md ${isFav ? 'text-yellow-500' : 'text-gray-300'} hover:scale-110`}
                           aria-label={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                         >
                           {isFav ? '★' : '☆'}
