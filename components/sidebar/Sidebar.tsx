@@ -7,6 +7,7 @@ import { FiHome, FiStar, FiPackage, FiChevronRight } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 
 type View = 'root' | 'favoritos' | 'modulos';
+const STORAGE_KEY = 'sidebar:view';
 
 interface Module {
   name: string;
@@ -56,16 +57,29 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
 
+  // Carrega a última view da sessão
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY) as View | null;
+      if (stored === 'favoritos' || stored === 'modulos' || stored === 'root') {
+        setView(stored);
+      }
+    } catch {}
+  }, []);
+
+  // Mantém foco acessível ao trocar de view
   useEffect(() => {
     const el = view === 'root' ? rootFirstRef.current : panelFirstRef.current;
     el?.focus();
   }, [view]);
 
+  // ESC volta ao root
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && view !== 'root') {
         e.preventDefault();
         setView('root');
+        try { sessionStorage.setItem(STORAGE_KEY, 'root'); } catch {}
       }
     };
     window.addEventListener('keydown', onKey);
@@ -89,7 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     <aside className="bg-white flex flex-col border-r border-gray-200 w-[280px] overflow-hidden">
       {/* Brand */}
       <div className="h-14 flex items-center px-4">
-        <Link href="/dashboard" className="text-2xl font-bold text-blue-700">
+        <Link href="/dashboard" className="text-2xl font-bold text-blue-700" onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, 'root'); } catch {} }}>
           Konty Sistemas
         </Link>
       </div>
@@ -105,6 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <Link
               href="/dashboard"
               ref={rootFirstRef as any}
+              onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, 'root'); } catch {} }}
               className={`flex items-center justify-between px-3 py-2 rounded-md transition group ${
                 isActiveRoot('/dashboard') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
@@ -118,7 +133,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition group ${
                 view === 'favoritos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
-              onClick={() => setView('favoritos')}
+              onClick={() => { setView('favoritos'); try { sessionStorage.setItem(STORAGE_KEY, 'favoritos'); } catch {} }}
             >
               <span className="flex items-center gap-2">
                 <FiStar className="group-hover:text-blue-500" />
@@ -130,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               className={`flex items-center justify-between w-full px-3 py-2 rounded-md transition group ${
                 view === 'modulos' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
               }`}
-              onClick={() => setView('modulos')}
+              onClick={() => { setView('modulos'); try { sessionStorage.setItem(STORAGE_KEY, 'modulos'); } catch {} }}
             >
               <span className="flex items-center gap-2">
                 <FiPackage className="group-hover:text-blue-500" />
@@ -145,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <div className="h-14 flex items-center justify-between px-2 sm:px-3 border-b">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setView('root')}
+                  onClick={() => { setView('root'); try { sessionStorage.setItem(STORAGE_KEY, 'root'); } catch {} }}
                   className="p-2 rounded-lg border border-blue-100 text-blue-600 bg-gray-100 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
                   aria-label="Voltar"
                   title="Voltar"
@@ -169,16 +184,17 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                 <ul className="space-y-1">
                   {panelList.map((m, idx) => {
                     const isFav = favorites.includes(m.path);
+                    const isActive = router.pathname.startsWith(m.path);
                     return (
                       <li key={m.path} className="flex items-center justify-between">
                         <button
                           ref={idx === 0 ? panelFirstRef : undefined}
-                          onClick={() => router.push(m.path)}
-                          className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50 text-left flex-1"
+                          onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, view); } catch {} ; router.push(m.path); }}
+                          className={`flex items-center gap-3 px-2 py-2 rounded-md text-left flex-1 hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
                           title={m.name}
                         >
-                          <div className="w-2 h-2 rounded-full bg-blue-600" />
-                          <span className="text-sm text-gray-800 truncate">{m.name}</span>
+                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
+                          <span className="text-sm truncate">{m.name}</span>
                         </button>
                         <button
                           onClick={() => toggleFavorite(m.path)}
