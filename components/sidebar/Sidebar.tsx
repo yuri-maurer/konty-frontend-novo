@@ -194,12 +194,12 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                           title={m.name}
                         >
                           <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
-                          <span className="text-sm truncate">{m.name}</span>
+                          <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
                         </button>
                         <button
                           onClick={() => toggleFavorite(m.path)}
                           title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                          className={`p-2 text-lg rounded-md ${isFav ? 'text-yellow-500' : 'text-gray-300'} hover:scale-110`}
+                          className={`p-3 text-2xl rounded-md drop-shadow-sm transition ${isFav ? 'text-yellow-400' : 'text-gray-500'} hover:scale-110`}
                           aria-label={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                         >
                           {isFav ? '★' : '☆'}
