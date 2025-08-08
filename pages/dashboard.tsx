@@ -1,4 +1,4 @@
-// pages/dashboard.tsx
+// pages/dashboard.tsx (patched)
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -15,16 +15,19 @@ const MODULE_DEFINITIONS = {
     name: 'Extrair PDF',
     path: '/modulos/extrair-pdf',
     icon: AiOutlineFilePdf,
+    color: 'blue',
   },
   'gestao-usuarios': {
     name: 'Gestão de Usuários',
     path: '/admin/usuarios',
     icon: FaUsers,
+    color: 'green',
   },
   'calculadora': {
     name: 'Calculadora',
     path: '/modulos/calculadora',
     icon: AiOutlineCalculator,
+    color: 'red',
   },
 };
 
@@ -33,7 +36,7 @@ const DashboardPage = () => {
   const user = useUser();
   const supabaseClient = useSupabaseClient();
 
-  const [allowedModules, setAllowedModules] = useState([]);
+  const [allowedModules, setAllowedModules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -55,15 +58,12 @@ const DashboardPage = () => {
         setIsLoading(false);
         return;
       }
-      
       const userModules = permissions
-        .map(p => MODULE_DEFINITIONS[p.modulo_nome])
-        .filter(Boolean); 
-
+        .map((p: any) => MODULE_DEFINITIONS[p.modulo_nome])
+        .filter(Boolean);
       setAllowedModules(userModules);
       setIsLoading(false);
     };
-
     fetchPermissions();
   }, [user, router, supabaseClient]);
 
@@ -74,22 +74,22 @@ const DashboardPage = () => {
   return (
     <DashboardLayout modules={allowedModules}>
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Módulos Disponíveis</h1>
-      
       {allowedModules.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {allowedModules.map((module) => (
+          {allowedModules.map((module: any) => (
             <ModuleCard
               key={module.path}
               title={module.name}
               path={module.path}
               icon={module.icon}
+              color={module.color}
             />
           ))}
         </div>
       ) : (
         <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
-            <p className="text-gray-600">Nenhum módulo disponível para o seu utilizador.</p>
-            <p className="text-sm text-gray-500 mt-2">Entre em contacto com o administrador do sistema.</p>
+          <p className="text-gray-600">Nenhum módulo disponível para o seu utilizador.</p>
+          <p className="text-sm text-gray-500 mt-2">Entre em contacto com o administrador do sistema.</p>
         </div>
       )}
     </DashboardLayout>
