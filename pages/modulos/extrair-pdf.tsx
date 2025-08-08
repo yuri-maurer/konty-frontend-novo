@@ -1,6 +1,4 @@
 // pages/modulos/extrair-pdf.tsx
-// Renderiza o módulo DENTRO do DashboardLayout (mantém Sidebar e Topbar)
-// Rotas permanecem: /modulos/extrair-pdf
 import { useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
@@ -21,8 +19,8 @@ type StatusMessage = {
   type: 'success' | 'error' | 'processing';
 } | null;
 
-// --- Conteúdo do Módulo (sem layout próprio) ---
-const ExtrairPdfInner: FC = () => {
+// --- Componente do Módulo ---
+const ExtrairPdfPage: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -31,6 +29,7 @@ const ExtrairPdfInner: FC = () => {
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'dividir' | 'logs'>('dividir');
   const [file, setFile] = useState<File | null>(null);
+  // isDragging: CERTIFIQUE-SE de existir UMA única declaração
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -39,6 +38,7 @@ const ExtrairPdfInner: FC = () => {
 
   // Efeito para verificar autenticação e permissões do usuário
   useEffect(() => {
+    // Aguarda a definição do estado do usuário
     if (user === undefined) return;
     if (!user) {
       router.push('/login');
@@ -47,6 +47,7 @@ const ExtrairPdfInner: FC = () => {
 
     const checkPermissions = async () => {
       if (!user || !supabase) return;
+
       try {
         const { data: permission, error } = await supabase
           .from('permissoes')
@@ -56,12 +57,13 @@ const ExtrairPdfInner: FC = () => {
           .single();
 
         if (error || !permission?.ativo) {
+          // Se não tiver permissão, redireciona para o dashboard com um erro
           router.push('/dashboard?error=unauthorized');
         } else {
           setIsAuthorized(true);
         }
       } catch (e) {
-        console.error('Erro ao verificar permissões:', e);
+        console.error("Erro ao verificar permissões:", e);
         router.push('/dashboard?error=unauthorized');
       } finally {
         setIsLoading(false);
@@ -84,12 +86,12 @@ const ExtrairPdfInner: FC = () => {
     setLogs(prevLogs => [newLog, ...prevLogs]);
   }, [file?.name]);
 
-  // Seleção de arquivo
+  // Manipula a seleção de um arquivo
   const handleFileSelect = useCallback((selectedFile: File | null) => {
     if (selectedFile) {
       if (selectedFile.type === 'application/pdf') {
         setFile(selectedFile);
-        setStatusMessage(null);
+        setStatusMessage(null); // Limpa mensagens de status anteriores
         addLog('Seleção de Arquivo', 'Sucesso', 'Arquivo PDF selecionado.', selectedFile.name);
       } else {
         setStatusMessage({ text: 'Formato de arquivo inválido. Por favor, selecione um PDF.', type: 'error' });
@@ -99,15 +101,17 @@ const ExtrairPdfInner: FC = () => {
     }
   }, [addLog]);
 
-  // Remoção
+  // Remove o arquivo selecionado
   const handleRemoveFile = () => {
     const fileName = file?.name;
     setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     addLog('Remoção de Arquivo', 'Sucesso', 'Arquivo selecionado removido.', fileName);
   };
 
-  // Enviar ao backend
+  // Envia o arquivo para o backend para processamento
   const handleSubmit = async () => {
     if (!file) {
       setStatusMessage({ text: 'Por favor, selecione um arquivo PDF primeiro.', type: 'error' });
@@ -137,16 +141,18 @@ const ExtrairPdfInner: FC = () => {
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get('content-disposition');
-      let filename = 'recibos_processados.zip';
+      let filename = 'recibos_processados.zip'; // Nome padrão
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
       }
       saveAs(blob, filename);
       setStatusMessage({ text: `Arquivo ZIP '${filename}' baixado com sucesso!`, type: 'success' });
       addLog('Processamento e Download', 'Sucesso', `Arquivo ZIP '${filename}' baixado.`);
     } catch (error: any) {
-      console.error('Erro ao processar PDF:', error);
+      console.error("Erro ao processar PDF:", error);
       const errorMessage = error.message || 'Não foi possível conectar ao backend.';
       setStatusMessage({ text: `Erro: ${errorMessage}`, type: 'error' });
       addLog('Processamento Backend', 'Erro', errorMessage);
@@ -155,44 +161,61 @@ const ExtrairPdfInner: FC = () => {
     }
   };
 
-  // Drag-and-drop
+  // Funções para a área de arrastar e soltar (Drag and Drop)
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileSelect(e.dataTransfer.files[0]);
       e.dataTransfer.clearData();
     }
   };
-  const [isDragging, setIsDragging] = useState(false);
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
 
-  // Loading/Autorização
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  // Renderização de Loading
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full items-center justify-center bg-gray-50 text-gray-600">
-        <p>A verificar permissões do módulo...</p>
-      </div>
+      <DashboardLayout modules={[{ name: 'Extrair PDF', path: '/modulos/extrair-pdf', icon: (() => null) as any }]}>
+        <div className="flex flex-col h-full items-center justify-center bg-gray-50 text-gray-600">
+          <p>A verificar permissões do módulo...</p>
+        </div>
+      </DashboardLayout>
     );
   }
-  if (!isAuthorized) return null;
 
-  // UI principal (sem botão "Voltar" aqui — usamos o da Topbar do layout)
-  return (
+  // Bloqueia renderização se não estiver autorizado
+  if (!isAuthorized) {
+     return null; // O redirecionamento já foi acionado no useEffect
+  }
+
+  // --- UI principal do módulo, agora DENTRO do DashboardLayout ---
+  const ModuleUI = (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header com abas */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <nav className="flex space-x-2">
-          <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'dividir' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
-            Dividir PDF
-          </button>
-          <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
-            Logs
-          </button>
+            {/* Removemos o botão Voltar próprio; use o da Topbar */}
+            <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'dividir' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                Dividir PDF
+            </button>
+            <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                Logs
+            </button>
         </nav>
       </div>
-
+      
       {/* Área de conteúdo que rola */}
       <div className="flex-1 p-6 overflow-y-auto">
         {activeTab === 'dividir' && (
@@ -216,7 +239,7 @@ const ExtrairPdfInner: FC = () => {
               </div>
             </div>
 
-            {/* Arquivo selecionado */}
+            {/* Exibição do arquivo selecionado */}
             {file && (
               <div className="mt-4">
                 <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -251,21 +274,21 @@ const ExtrairPdfInner: FC = () => {
             </div>
 
             {/* Mensagem de status */}
-            {statusMessage && (
-              <div className={`mt-6 p-4 rounded-lg text-center font-medium transition-all duration-300 ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
-                {statusMessage.text}
-              </div>
+             {statusMessage && (
+                <div className={`mt-6 p-4 rounded-lg text-center font-medium transition-all duration-300 ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+                    {statusMessage.text}
+                </div>
             )}
           </div>
         )}
         {activeTab === 'logs' && (
           <div className="bg-white rounded-lg shadow-md">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
-              <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md">
-                <i className="fas fa-download"></i>
-                <span>Exportar Logs</span>
-              </button>
+             <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
+                <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md">
+                    <i className="fas fa-download"></i>
+                    <span>Exportar Logs</span>
+                </button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -286,9 +309,9 @@ const ExtrairPdfInner: FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs" title={log.file}>{log.file}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{log.action}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ log.result === 'Sucesso' ? 'bg-green-100 text-green-800' :  log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
-                            {log.result}
-                          </span>
+                           <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ log.result === 'Sucesso' ? 'bg-green-100 text-green-800' :  log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+                                {log.result}
+                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-sm" title={log.details}>{log.details}</td>
                       </tr>
@@ -306,16 +329,10 @@ const ExtrairPdfInner: FC = () => {
       </div>
     </div>
   );
-};
 
-// --- Page export: envolve o conteúdo com o DashboardLayout ---
-const ExtrairPdfPage: FC = () => {
-  const modules = [
-    { name: 'Extrair PDF', path: '/modulos/extrair-pdf', icon: (() => null) as any },
-  ];
   return (
-    <DashboardLayout modules={modules}>
-      <ExtrairPdfInner />
+    <DashboardLayout modules={[{ name: 'Extrair PDF', path: '/modulos/extrair-pdf', icon: (() => null) as any }]}>
+      {ModuleUI}
     </DashboardLayout>
   );
 };
