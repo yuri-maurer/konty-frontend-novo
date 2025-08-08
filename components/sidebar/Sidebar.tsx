@@ -35,9 +35,9 @@ const Sidebar: React.FC<SidebarProps> = ({ modules, onOpenPanel }) => {
 
   return (
     <aside className="w-60 bg-white flex flex-col border-r border-gray-200">
-      {/* Brand */}
+      {/* Brand com logo maior */}
       <div className="h-14 flex items-center px-4">
-        <Link href="/dashboard" className="text-lg font-semibold text-blue-700">
+        <Link href="/dashboard" className="text-2xl font-bold text-blue-700">
           Konty Sistemas
         </Link>
       </div>
@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules, onOpenPanel }) => {
           Módulos
         </button>
 
-        {/* Lista simples (continua como navegação rápida) */}
+        {/* Lista simples (atalhos) */}
         <p className="px-3 pt-3 text-xs font-semibold text-gray-400 uppercase">Navegação</p>
         <ul className="mt-1 space-y-1">
           {modules.map((m) => (
@@ -85,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules, onOpenPanel }) => {
         </ul>
       </nav>
 
-      {/* Rodapé com identidade do usuário */}
+      {/* Rodapé com usuário */}
       <div className="mt-auto border-t border-gray-200 p-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold">
