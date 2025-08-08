@@ -1,4 +1,5 @@
 // pages/dashboard.tsx
+// This version implements search, favorites, category filtering, and status badges.
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -7,7 +8,7 @@ import ModuleCard from '../components/dashboard/ModuleCard';
 import { AiOutlineFilePdf, AiOutlineCalculator } from 'react-icons/ai';
 import { FaUsers } from 'react-icons/fa';
 
-// Define module metadata including description, category, status and optional color
+// Type describing the module metadata, including description, category, status, and color
 interface ModuleDefinition {
   name: string;
   path: string;
@@ -18,7 +19,7 @@ interface ModuleDefinition {
   color?: string;
 }
 
-// Central configuration of available modules
+// Central module definitions used to map permission names to metadata
 const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
   'extrair-pdf': {
     name: 'Extrair PDF',
@@ -49,7 +50,7 @@ const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
   },
 };
 
-// List of categories available for filtering
+// List of available categories to filter by
 const CATEGORIES = [
   'Documentos',
   'Administração',
@@ -63,20 +64,22 @@ const CATEGORIES = [
 const DashboardPage = () => {
   const router = useRouter();
   const user = useUser();
-  const supabaseClient = useSupabaseClient();
-  // Modules that the user has permission to access
+  const supabase = useSupabaseClient();
+
+  // Modules the user is allowed to access
   const [allowedModules, setAllowedModules] = useState<ModuleDefinition[]>([]);
+  // Loading indicator while fetching permissions
   const [isLoading, setIsLoading] = useState(true);
-  // Favorites state (stores module paths)
+  // Paths of favorite modules (persisted in localStorage)
   const [favorites, setFavorites] = useState<string[]>([]);
-  // Tab: whether to show all modules or only favorites
+  // Current tab: all modules or favorites only
   const [tab, setTab] = useState<'todos' | 'favoritos'>('todos');
-  // Search query for filtering modules by name/description
+  // Search term for filtering modules by name or description
   const [searchQuery, setSearchQuery] = useState('');
-  // Category filter; null means no category filter
+  // Currently selected category filter
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  // Fetch user's module permissions from Supabase
+  // Fetch user permissions from Supabase on mount or when user changes
   useEffect(() => {
     if (user === undefined) return;
     if (!user) {
@@ -84,7 +87,7 @@ const DashboardPage = () => {
       return;
     }
     const fetchPermissions = async () => {
-      const { data: permissions, error } = await supabaseClient
+      const { data: permissions, error } = await supabase
         .from('permissoes')
         .select('modulo_nome')
         .eq('user_id', user.id)
@@ -100,9 +103,9 @@ const DashboardPage = () => {
       setIsLoading(false);
     };
     fetchPermissions();
-  }, [user, router, supabaseClient]);
+  }, [user, router, supabase]);
 
-  // Load favorites from localStorage on mount
+  // Load favorites from localStorage when component mounts
   useEffect(() => {
     const stored = localStorage.getItem('moduleFavorites');
     if (stored) {
@@ -114,25 +117,23 @@ const DashboardPage = () => {
     }
   }, []);
 
-  // Persist favorites to localStorage whenever they change
+  // Persist favorites to localStorage whenever favorites state changes
   useEffect(() => {
     localStorage.setItem('moduleFavorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">A carregar painel...</div>;
-  }
-
-  // Toggle favorite state for a module path
+  // Function to toggle a module as favorite or not
   const toggleFavorite = (modulePath: string) => {
     setFavorites((prev) =>
       prev.includes(modulePath) ? prev.filter((p) => p !== modulePath) : [...prev, modulePath],
     );
   };
 
-  // Filter modules by search, tab and category
+  // Filter modules based on current search term, selected tab, and category
   const modulesFiltered = allowedModules.filter((mod) => {
+    // Filter by tab
     if (tab === 'favoritos' && !favorites.includes(mod.path)) return false;
+    // Filter by search term in name or description
     if (
       searchQuery &&
       !mod.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -140,17 +141,24 @@ const DashboardPage = () => {
     ) {
       return false;
     }
+    // Filter by category
     if (categoryFilter && mod.category !== categoryFilter) return false;
     return true;
   });
 
-  // Derive lists of favorites and others from filtered modules
-  const favoritesModules = modulesFiltered.filter((mod) => favorites.includes(mod.path));
-  const otherModules = modulesFiltered.filter((mod) => !favorites.includes(mod.path));
+  // Separate favorites and other modules within the filtered list
+  const favoritesModules = modulesFiltered.filter((m) => favorites.includes(m.path));
+  const otherModules = modulesFiltered.filter((m) => !favorites.includes(m.path));
+
+  // Display loading state while permissions are being fetched
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">A carregar painel...</div>;
+  }
 
   return (
     <DashboardLayout modules={allowedModules}>
       <div className="mb-6">
+        {/* Title */}
         <h1 className="text-3xl font-bold text-gray-800 mb-4">Módulos</h1>
         {/* Search bar */}
         <div className="mb-4">
@@ -162,7 +170,7 @@ const DashboardPage = () => {
             className="w-full sm:w-72 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
-        {/* Tabs for All vs Favorites */}
+        {/* Tabs: All or Favorites */}
         <div className="flex space-x-2 mb-4">
           <button
             onClick={() => setTab('todos')}
@@ -206,7 +214,8 @@ const DashboardPage = () => {
           )}
         </div>
       </div>
-      {/* Section for favorites when tab is 'todos' */}
+
+      {/* Section for favorites when showing all modules */}
       {tab === 'todos' && favoritesModules.length > 0 && (
         <div className="mb-10">
           <h2 className="text-xl font-semibold text-gray-800 mb-3">Favoritos</h2>
@@ -216,42 +225,55 @@ const DashboardPage = () => {
                 <ModuleCard
                   key={mod.path}
                   title={mod.name}
+                  path={mod.path}
+                  icon={mod.icon}
                   description={mod.description}
                   category={mod.category}
                   status={mod.status}
-                  path={mod.path}
-                  icon={mod.icon}
+                  color={mod.color}
                   isFavorite={favorites.includes(mod.path)}
                   onToggleFavorite={() => toggleFavorite(mod.path)}
-                  color={mod.color}
                 />
               ))}
             </div>
           </div>
         </div>
       )}
-      {/* Main module listing */}
+
+      {/* Main list of modules (favorites or others depending on tab) */}
       <h2 className="text-xl font-semibold text-gray-800 mb-3">
         {tab === 'favoritos' ? 'Módulos Favoritos' : 'Todos os Módulos'}
       </h2>
-      <div className="w-full flex justify-center">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {(tab === 'favoritos' ? favoritesModules : otherModules).map((mod) => (
-            <ModuleCard
-              key={mod.path}
-              title={mod.name}
-              description={mod.description}
-              category={mod.category}
-              status={mod.status}
-              path={mod.path}
-              icon={mod.icon}
-              isFavorite={favorites.includes(mod.path)}
-              onToggleFavorite={() => toggleFavorite(mod.path)}
-              color={mod.color}
-            />
-          ))}
+      {modulesFiltered.length === 0 ? (
+        // Empty state when no modules match the filters
+        <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
+          <p className="text-gray-600">Nenhum módulo encontrado.</p>
+          {categoryFilter && (
+            <p className="text-sm text-gray-500 mt-2">
+              Tente limpar o filtro ou ajustar a pesquisa.
+            </p>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="w-full flex justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {(tab === 'favoritos' ? favoritesModules : otherModules).map((mod) => (
+              <ModuleCard
+                key={mod.path}
+                title={mod.name}
+                path={mod.path}
+                icon={mod.icon}
+                description={mod.description}
+                category={mod.category}
+                status={mod.status}
+                color={mod.color}
+                isFavorite={favorites.includes(mod.path)}
+                onToggleFavorite={() => toggleFavorite(mod.path)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

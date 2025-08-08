@@ -1,4 +1,5 @@
 // components/dashboard/ModuleCard.tsx
+// This card displays module information with favorite toggle and status badge.
 import { useRouter } from 'next/router';
 import type { IconType } from 'react-icons';
 import { FaStar, FaRegStar } from 'react-icons/fa';
@@ -12,10 +13,10 @@ interface ModuleCardProps {
   status?: 'Novo' | 'Beta' | 'Em breve' | 'Restrito';
   isFavorite: boolean;
   onToggleFavorite: () => void;
-  color?: string; // Optional custom color
+  color?: string;
 }
 
-// Mapping styles for status badge
+// Mapping to set colors for different status badges
 const statusStyles: Record<string, string> = {
   Novo: 'bg-blue-100 text-blue-800',
   Beta: 'bg-purple-100 text-purple-800',
@@ -39,7 +40,7 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
     router.push(path);
   };
 
-  // Determine base styling based on color
+  // Determine base styling classes based on the color property
   let baseClass = '';
   let hoverClass = '';
   let iconClass = '';
@@ -67,7 +68,7 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
       onClick={handleNavigate}
       className={`group relative flex flex-col p-6 rounded-lg shadow-md cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${baseClass} ${hoverClass}`}
     >
-      {/* Favorite toggle */}
+      {/* Favorite star toggle button */}
       <button
         className="absolute top-2 right-2 z-10 p-1 rounded-full bg-white shadow hover:bg-gray-100"
         onClick={(e) => {
@@ -81,7 +82,8 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
           <FaRegStar className="text-gray-400 group-hover:text-yellow-400" size={18} />
         )}
       </button>
-      {/* Status badge */}
+
+      {/* Status badge showing module state */}
       {status && (
         <span
           className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -91,18 +93,22 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
           {status}
         </span>
       )}
-      {/* Icon */}
+
+      {/* Icon representation of the module */}
       <Icon
         size={42}
         className={`mb-4 ${iconClass} transition-colors duration-300 group-hover:text-white`}
       />
-      {/* Title */}
+
+      {/* Module title */}
       <h3 className="text-lg font-semibold text-gray-800 mb-1 transition-colors duration-300 group-hover:text-white">
         {title}
       </h3>
-      {/* Description */}
+
+      {/* Module description truncated to one line */}
       {description && <p className="text-sm text-gray-600 mb-1 truncate">{description}</p>}
-      {/* Category */}
+
+      {/* Category label */}
       {category && <span className="text-xs font-medium text-gray-500">{category}</span>}
     </div>
   );
