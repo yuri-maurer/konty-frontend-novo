@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     } catch {}
   }, []);
 
-  // Persist & emit on change
+  // Emit and persist on change
   useEffect(() => {
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
@@ -98,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
       <div className="relative flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 flex transition-transform duration-300 ease-out ${
-            view === 'root' ? 'translate-x-0' : '-translate-x-1/2'
+            view === 'root' ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ width: '200%' }}
         >
@@ -133,11 +133,14 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setView('root')}
-                  className="p-2 rounded-md hover:bg-gray-100"
+                  className="p-2 rounded-lg border border-blue-100 text-blue-600 bg-gray-100 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
                   aria-label="Voltar"
                   title="Voltar"
                 >
-                  ←
+                  {/* Chevron esquerdo */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </button>
                 <h3 className="text-sm font-semibold text-gray-800">
                   {view === 'favoritos' ? 'Favoritos' : 'Módulos'}
@@ -193,7 +196,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <p className="text-sm font-medium text-gray-800 truncate">{user?.email || 'Usuário'}</p>
             <div className="flex items-center gap-3 mt-1">
               <Link href="/perfil" className="text-xs text-gray-600 hover:underline">Perfil</Link>
-              <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="text-xs text-red-600 hover:underline">Sair</button>
+              <button onClick={handleLogout} className="text-xs text-red-600 hover:underline">Sair</button>
             </div>
           </div>
         </div>
