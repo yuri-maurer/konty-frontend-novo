@@ -1,208 +1,205 @@
 // pages/dashboard.tsx
-// Passo 4.3: cards de métricas com ícones + grid responsivo (2–4 colunas) e espaçamento mais compacto
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
-import ModuleCard from '../components/dashboard/ModuleCard';
-import { AiOutlineFilePdf, AiOutlineCalculator } from 'react-icons/ai';
-import { FaUsers } from 'react-icons/fa';
 
-interface ModuleDefinition {
+type Status = 'Ativo' | 'Pendente' | 'Novo';
+
+interface ModuleDef {
+  key: string;
   name: string;
   path: string;
-  icon: any;
   description?: string;
   category?: string;
-  status?: 'Novo' | 'Beta' | 'Em breve' | 'Restrito';
+  status?: Status;
   color?: string;
 }
 
-const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
+// Catálogo central de módulos (ajuste/expanda conforme seu projeto)
+const ALL_MODULES: Record<string, ModuleDef> = {
   'extrair-pdf': {
+    key: 'extrair-pdf',
     name: 'Extrair PDF',
     path: '/modulos/extrair-pdf',
-    icon: AiOutlineFilePdf,
     description: 'Extrai recibos de PDFs de notas fiscais.',
     category: 'Documentos',
-    status: 'Novo',
+    status: 'Ativo',
     color: 'blue',
   },
-  'gestao-usuarios': {
-    name: 'Gestão de Usuários',
-    path: '/admin/usuarios',
-    icon: FaUsers,
-    description: 'Administra usuários e permissões.',
-    category: 'Administração',
-    status: 'Restrito',
-    color: 'green',
-  },
-  calculadora: {
-    name: 'Calculadora',
-    path: '/modulos/calculadora',
-    icon: AiOutlineCalculator,
-    description: 'Realiza cálculos diversos.',
-    category: 'Ferramentas',
-    status: 'Beta',
-    color: 'red',
+  // Exemplo adicional
+  'calculadora-icms': {
+    key: 'calculadora-icms',
+    name: 'Calculadora ICMS',
+    path: '/modulos/calculadora-icms',
+    description: 'Auxilia nos cálculos de ICMS.',
+    category: 'Fiscal',
+    status: 'Pendente',
+    color: 'emerald',
   },
 };
 
-const DashboardPage = () => {
+export default function DashboardPage() {
   const router = useRouter();
   const user = useUser();
   const supabase = useSupabaseClient();
 
-  const [allowedModules, setAllowedModules] = useState<ModuleDefinition[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [globalQuery, setGlobalQuery] = useState('');
+  // Permissões -> módulos liberados
+  const [allowedKeys, setAllowedKeys] = useState<string[]>([]);
+  const [loadingPerms, setLoadingPerms] = useState(true);
 
-  // Ouve a busca global
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPerms() {
+      try {
+        if (!user) return;
+        const { data, error } = await supabase
+          .from('permissoes')
+          .select('modulo_nome, ativo')
+          .eq('user_id', user.id)
+          .eq('ativo', true);
+        if (error) throw error;
+        const keys = (data || []).map((r: any) => r.modulo_nome).filter(Boolean);
+        if (isMounted) setAllowedKeys(keys);
+      } catch {
+        // fallback: libera tudo se houver falha (evita travar o dashboard)
+        if (isMounted) setAllowedKeys(Object.keys(ALL_MODULES));
+      } finally {
+        if (isMounted) setLoadingPerms(false);
+      }
+    }
+    loadPerms();
+    return () => { isMounted = false; };
+  }, [supabase, user]);
+
+  // Lista final de módulos permitidos
+  const allowedModules = useMemo<ModuleDef[]>(() => {
+    const keys = allowedKeys.length ? allowedKeys : Object.keys(ALL_MODULES);
+    return keys.map((k) => ALL_MODULES[k]).filter(Boolean);
+  }, [allowedKeys]);
+
+  // Favoritos (array de paths) + sincronização via evento
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  // Carrega favoritos do localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('moduleFavorites');
+      if (stored) setFavorites(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  // Persiste e EMITE favorites-updated quando mudar
+  useEffect(() => {
+    try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
+    }
+  }, [favorites]);
+
+  const toggleFavorite = (path: string) => {
+    setFavorites((prev) => {
+      const has = prev.includes(path);
+      return has ? prev.filter((p) => p !== path) : [...prev, path];
+    });
+  };
+
+  // Busca global (ouvir evento do Layout)
+  const [query, setQuery] = useState('');
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail || '';
-      setGlobalQuery(detail);
+      const value = (e as CustomEvent<string>).detail ?? '';
+      setQuery(value?.toLowerCase?.() || '');
     };
     window.addEventListener('global-search', handler as EventListener);
     return () => window.removeEventListener('global-search', handler as EventListener);
   }, []);
 
-  // Permissões
-  useEffect(() => {
-    if (user === undefined) return;
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    const fetchPermissions = async () => {
-      const { data: permissions, error } = await supabase
-        .from('permissoes')
-        .select('modulo_nome')
-        .eq('user_id', user.id)
-        .eq('ativo', true);
-      if (error) {
-        console.error('Erro ao buscar permissões:', error.message);
-        setIsLoading(false);
-        return;
-      }
-      const userModules =
-        permissions?.map((p: any) => MODULE_DEFINITIONS[p.modulo_nome]).filter(Boolean) || [];
-      setAllowedModules(userModules);
-      setIsLoading(false);
-    };
-    fetchPermissions();
-  }, [user, router, supabase]);
+  const filtered = useMemo(() => {
+    const list = allowedModules;
+    if (!query) return list;
+    return list.filter((m) => {
+      const blob = `${m.name} ${m.description ?? ''} ${m.category ?? ''}`.toLowerCase();
+      return blob.includes(query);
+    });
+  }, [allowedModules, query]);
 
-  // Favoritos (localStorage)
-  useEffect(() => {
-    const stored = localStorage.getItem('moduleFavorites');
-    if (stored) {
-      try {
-        setFavorites(JSON.parse(stored));
-      } catch {
-        setFavorites([]);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('moduleFavorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  const toggleFavorite = (modulePath: string) => {
-    setFavorites((prev) =>
-      prev.includes(modulePath) ? prev.filter((p) => p !== modulePath) : [...prev, modulePath],
+  if (loadingPerms && !allowedModules.length) {
+    return (
+      <DashboardLayout
+        modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
+      >
+        <div className="text-sm text-gray-600">Carregando…</div>
+      </DashboardLayout>
     );
-  };
-
-  if (isLoading) {
-    return <div className="flex h-screen items-center justify-center">A carregar painel...</div>;
   }
 
-  const ativos = allowedModules.length;
-  const favs = favorites.filter((p) => allowedModules.some((m) => m.path === p)).length;
-  const pendencias = 0;
-
-  const filtered = allowedModules.filter((m) => {
-    if (!globalQuery) return true;
-    const q = globalQuery.toLowerCase();
-    return m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q);
-  });
-
   return (
-    <DashboardLayout modules={allowedModules}>
-      {/* Cards informativos compactos com ícones */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500">Módulos Ativos</p>
-            <p className="text-2xl font-bold text-gray-800">{ativos}</p>
-          </div>
-        <div className="w-10 h-10 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center">
-            {/* check icon */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+    <DashboardLayout
+      modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
+    >
+      {/* Cards de métricas simples */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Módulos ativos</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">{allowedModules.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500">Favoritos</p>
-            <p className="text-2xl font-bold text-gray-800">{favs}</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center justify-center">
-            {/* star icon */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#ca8a04">
-              <path d="M12 17.27L18.18 21 16.54 13.97 22 9.24 14.81 8.62 12 2 9.19 8.62 2 9.24 7.46 13.97 5.82 21z"/>
-            </svg>
-          </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Favoritos</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">{favorites.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-h-[90px] flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500">Ações Pendentes</p>
-            <p className="text-2xl font-bold text-gray-800">{pendencias}</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center">
-            {/* alert icon */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Pendências</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">
+            {allowedModules.filter((m) => m.status === 'Pendente').length}
+          </p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Novos</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">
+            {allowedModules.filter((m) => m.status === 'Novo').length}
+          </p>
         </div>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-1">Módulos</h1>
-      <p className="text-sm text-gray-500 mb-5">Acesse rapidamente os módulos disponíveis para o seu perfil.</p>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-10 px-6 bg-white rounded-xl shadow-sm border border-gray-200">
-          <p className="text-gray-600">Nenhum módulo encontrado.</p>
-          <p className="text-sm text-gray-500 mt-2">Tente ajustar a busca ou limpar o campo (Esc).</p>
-        </div>
-      ) : (
-        <div className="w-full flex justify-center">
-          {/* Grid 2–4 colunas com gaps menores */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((mod) => (
-              <ModuleCard
-                key={mod.path}
-                title={mod.name}
-                path={mod.path}
-                icon={mod.icon}
-                description={mod.description}
-                category={mod.category}
-                status={mod.status}
-                color={mod.color}
-                isFavorite={favorites.includes(mod.path)}
-                onToggleFavorite={() => toggleFavorite(mod.path)}
-              />
-            ))}
+      {/* Lista de módulos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filtered.length === 0 ? (
+          <div className="col-span-full bg-white border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500">
+            Nenhum módulo encontrado.
           </div>
-        </div>
-      )}
+        ) : (
+          filtered.map((m) => {
+            const isFav = favorites.includes(m.path);
+            return (
+              <div key={m.key} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-gray-900">{m.name}</div>
+                  <button
+                    onClick={() => toggleFavorite(m.path)}
+                    title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                    className={`text-lg ${isFav ? 'text-yellow-500' : 'text-gray-300'} hover:scale-110 transition`}
+                  >
+                    {isFav ? '★' : '☆'}
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600">{m.description || '—'}</p>
+                <div className="flex items-center justify-between mt-auto">
+                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs border border-gray-200 text-gray-600">
+                    {m.category || 'Geral'}
+                  </span>
+                  <a
+                    href={m.path}
+                    className="text-sm font-medium text-blue-700 hover:underline"
+                  >
+                    Abrir
+                  </a>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </DashboardLayout>
   );
-};
-
-export default DashboardPage;
+}
