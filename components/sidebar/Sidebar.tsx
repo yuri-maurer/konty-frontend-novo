@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     } catch {}
   }, []);
 
-  // Emit and persist on change
+  // Persist & emit on change
   useEffect(() => {
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
@@ -98,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
       <div className="relative flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 flex transition-transform duration-300 ease-out ${
-            view === 'root' ? 'translate-x-0' : '-translate-x-full'
+            view === 'root' ? 'translate-x-0' : '-translate-x-1/2'
           }`}
           style={{ width: '200%' }}
         >
@@ -125,24 +125,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             >
               Módulos
             </button>
-
-            <p className="px-3 pt-3 text-xs font-semibold text-gray-400 uppercase">Navegação</p>
-            <ul className="mt-1 space-y-1 pb-3">
-              {modules.map((m) => (
-                <li key={m.path}>
-                  <Link
-                    href={m.path}
-                    className={`block px-3 py-2 rounded-md transition ${
-                      router.pathname.startsWith(m.path)
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {m.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* PAINEL (Favoritos ou Módulos) */}
@@ -211,7 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             <p className="text-sm font-medium text-gray-800 truncate">{user?.email || 'Usuário'}</p>
             <div className="flex items-center gap-3 mt-1">
               <Link href="/perfil" className="text-xs text-gray-600 hover:underline">Perfil</Link>
-              <button onClick={handleLogout} className="text-xs text-red-600 hover:underline">Sair</button>
+              <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="text-xs text-red-600 hover:underline">Sair</button>
             </div>
           </div>
         </div>
