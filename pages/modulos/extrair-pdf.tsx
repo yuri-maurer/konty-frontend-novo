@@ -295,7 +295,11 @@ const ExtrairPdfPage: FC = () => {
           <div className="bg-white rounded-lg shadow-md">
              <div className="flex justify-between items-center p-4 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
-                <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md">
+                                <button
+                    onClick={handleExportLogs}
+                    disabled={logs.length === 0}
+                    className={`bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed disabled:text-gray-200`}
+                >
                     <i className="fas fa-download"></i>
                     <span>Exportar Logs</span>
                 </button>
