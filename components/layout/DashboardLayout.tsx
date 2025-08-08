@@ -1,8 +1,8 @@
 // components/layout/DashboardLayout.tsx
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import Sidebar from '../sidebar/Sidebar';
 import type { IconType } from 'react-icons';
-import { AiOutlineSearch } from 'react-icons/ai';
 
 interface Module {
   name: string;
@@ -16,7 +16,7 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,29 +63,31 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      <Sidebar modules={modules} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      <Sidebar modules={modules} />
 
       {/* Área principal */}
       <main className="flex flex-col flex-1 overflow-y-hidden">
-        {/* Topbar fixa, com melhor espaçamento */}
-        <header className="h-16 flex items-center justify-between gap-3 px-4 bg-white border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setCollapsed((c) => !c)}
-              className="px-2 py-1 rounded-md hover:bg-gray-100 transition"
-              aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-              title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-            >
-              <div className="w-5 h-0.5 bg-gray-700 mb-1" />
-              <div className="w-5 h-0.5 bg-gray-700 mb-1" />
-              <div className="w-5 h-0.5 bg-gray-700" />
-            </button>
-            <span className="text-lg font-semibold text-gray-800">Konty Sistemas</span>
-          </div>
+        {/* Topbar clean: apenas voltar + busca */}
+        <header className="h-14 flex items-center gap-3 px-3 sm:px-4 bg-white border-b border-gray-200">
+          {/* Botão voltar */}
+          <button
+            onClick={() => router.back()}
+            className="p-2 rounded-md hover:bg-gray-100 transition"
+            aria-label="Voltar"
+            title="Voltar"
+          >
+            {/* Caret simples */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
 
-          {/* Busca com largura fluida */}
-          <div className="flex-1 max-w-xl hidden md:flex items-center bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5">
-            <AiOutlineSearch className="text-gray-500 mr-2" size={18} />
+          {/* Campo de busca central e fluido */}
+          <div className="flex-1 flex items-center bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 max-w-3xl">
+            <svg className="text-gray-500 mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+              <path d="M20 20l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
             <input
               ref={inputRef}
               value={query}
@@ -104,18 +106,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
               </button>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-md transition">
-              + Novo Módulo
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300" title="Perfil" />
-          </div>
         </header>
 
-        {/* Conteúdo com container central */}
+        {/* Conteúdo com container mais enxuto */}
         <section className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6">
+          <div className="max-w-6xl mx-auto px-4 lg:px-5 py-5">
             {children}
           </div>
         </section>
