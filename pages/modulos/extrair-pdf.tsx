@@ -1,8 +1,11 @@
 // pages/modulos/extrair-pdf.tsx
+// Renderiza o módulo DENTRO do DashboardLayout (mantém Sidebar e Topbar)
+// Rotas permanecem: /modulos/extrair-pdf
 import { useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { saveAs } from 'file-saver';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 // --- Tipos e Interfaces ---
 type LogEntry = {
@@ -18,8 +21,8 @@ type StatusMessage = {
   type: 'success' | 'error' | 'processing';
 } | null;
 
-// --- Componente do Módulo ---
-const ExtrairPdfPage: FC = () => {
+// --- Conteúdo do Módulo (sem layout próprio) ---
+const ExtrairPdfInner: FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -36,7 +39,6 @@ const ExtrairPdfPage: FC = () => {
 
   // Efeito para verificar autenticação e permissões do usuário
   useEffect(() => {
-    // Aguarda a definição do estado do usuário
     if (user === undefined) return;
     if (!user) {
       router.push('/login');
@@ -45,7 +47,6 @@ const ExtrairPdfPage: FC = () => {
 
     const checkPermissions = async () => {
       if (!user || !supabase) return;
-
       try {
         const { data: permission, error } = await supabase
           .from('permissoes')
@@ -55,13 +56,12 @@ const ExtrairPdfPage: FC = () => {
           .single();
 
         if (error || !permission?.ativo) {
-          // Se não tiver permissão, redireciona para o dashboard com um erro
           router.push('/dashboard?error=unauthorized');
         } else {
           setIsAuthorized(true);
         }
       } catch (e) {
-        console.error("Erro ao verificar permissões:", e);
+        console.error('Erro ao verificar permissões:', e);
         router.push('/dashboard?error=unauthorized');
       } finally {
         setIsLoading(false);
@@ -84,12 +84,12 @@ const ExtrairPdfPage: FC = () => {
     setLogs(prevLogs => [newLog, ...prevLogs]);
   }, [file?.name]);
 
-  // Manipula a seleção de um arquivo
+  // Seleção de arquivo
   const handleFileSelect = useCallback((selectedFile: File | null) => {
     if (selectedFile) {
       if (selectedFile.type === 'application/pdf') {
         setFile(selectedFile);
-        setStatusMessage(null); // Limpa mensagens de status anteriores
+        setStatusMessage(null);
         addLog('Seleção de Arquivo', 'Sucesso', 'Arquivo PDF selecionado.', selectedFile.name);
       } else {
         setStatusMessage({ text: 'Formato de arquivo inválido. Por favor, selecione um PDF.', type: 'error' });
@@ -99,17 +99,15 @@ const ExtrairPdfPage: FC = () => {
     }
   }, [addLog]);
 
-  // Remove o arquivo selecionado
+  // Remoção
   const handleRemoveFile = () => {
     const fileName = file?.name;
     setFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     addLog('Remoção de Arquivo', 'Sucesso', 'Arquivo selecionado removido.', fileName);
   };
 
-  // Envia o arquivo para o backend para processamento
+  // Enviar ao backend
   const handleSubmit = async () => {
     if (!file) {
       setStatusMessage({ text: 'Por favor, selecione um arquivo PDF primeiro.', type: 'error' });
@@ -139,18 +137,16 @@ const ExtrairPdfPage: FC = () => {
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get('content-disposition');
-      let filename = 'recibos_processados.zip'; // Nome padrão
+      let filename = 'recibos_processados.zip';
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
-        }
+        if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
       }
       saveAs(blob, filename);
       setStatusMessage({ text: `Arquivo ZIP '${filename}' baixado com sucesso!`, type: 'success' });
       addLog('Processamento e Download', 'Sucesso', `Arquivo ZIP '${filename}' baixado.`);
     } catch (error: any) {
-      console.error("Erro ao processar PDF:", error);
+      console.error('Erro ao processar PDF:', error);
       const errorMessage = error.message || 'Não foi possível conectar ao backend.';
       setStatusMessage({ text: `Erro: ${errorMessage}`, type: 'error' });
       addLog('Processamento Backend', 'Erro', errorMessage);
@@ -159,44 +155,20 @@ const ExtrairPdfPage: FC = () => {
     }
   };
 
-  // Funções para a área de arrastar e soltar (Drag and Drop)
+  // Drag-and-drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFileSelect(e.dataTransfer.files[0]);
       e.dataTransfer.clearData();
     }
   };
+  const [isDragging, setIsDragging] = useState(false);
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-  
-  // Exporta os logs para um arquivo CSV
-  const handleExportLogs = () => {
-    if (logs.length === 0) {
-        alert('Não há logs para exportar.');
-        return;
-    }
-    const csvHeader = "Data/Hora,Arquivo,Ação,Resultado,Detalhes\n";
-    const csvRows = logs.map(log => `"${log.dateTime}","${log.file}","${log.action}","${log.result}","${log.details.replace(/"/g, '""')}"`).join('\n');
-    const csvContent = csvHeader + csvRows;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `logs_extrator_pdf_${new Date().toISOString().slice(0,10)}.csv`);
-    addLog('Exportar Logs', 'Sucesso', 'Logs exportados para CSV.');
-  };
-
-  // Renderização de Loading
+  // Loading/Autorização
   if (isLoading) {
     return (
       <div className="flex flex-col h-full items-center justify-center bg-gray-50 text-gray-600">
@@ -204,40 +176,28 @@ const ExtrairPdfPage: FC = () => {
       </div>
     );
   }
+  if (!isAuthorized) return null;
 
-  // Bloqueia renderização se não estiver autorizado
-  if (!isAuthorized) {
-     return null; // O redirecionamento já foi acionado no useEffect
-  }
-
-  // --- Renderização Principal do Componente ---
+  // UI principal (sem botão "Voltar" aqui — usamos o da Topbar do layout)
   return (
-    // CORREÇÃO DE ALTURA: 'flex flex-col h-full' faz o componente ocupar todo o espaço vertical disponível no layout.
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header com abas */}
       <div className="p-4 border-b border-gray-200 bg-white">
         <nav className="flex space-x-2">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-600 hover:bg-gray-100 flex items-center space-x-2"
-            >
-              <i className="fas fa-arrow-left"></i>
-              <span>Voltar</span>
-            </button>
-            <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'dividir' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
-                Dividir PDF
-            </button>
-            <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
-                Logs
-            </button>
+          <button onClick={() => setActiveTab('dividir')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'dividir' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+            Dividir PDF
+          </button>
+          <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'logs' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+            Logs
+          </button>
         </nav>
       </div>
-      
+
       {/* Área de conteúdo que rola */}
       <div className="flex-1 p-6 overflow-y-auto">
         {activeTab === 'dividir' && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            {/* REFINAMENTO DE LAYOUT: Área de upload baseada no Index.html */}
+            {/* Área de upload */}
             <div
               onDrop={handleDrop}
               onDragOver={handleDragEnter}
@@ -256,7 +216,7 @@ const ExtrairPdfPage: FC = () => {
               </div>
             </div>
 
-            {/* REFINAMENTO DE LAYOUT: Exibição do arquivo selecionado */}
+            {/* Arquivo selecionado */}
             {file && (
               <div className="mt-4">
                 <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -271,7 +231,7 @@ const ExtrairPdfPage: FC = () => {
               </div>
             )}
             
-            {/* REFINAMENTO DE LAYOUT: Botão de processamento */}
+            {/* Botão de processamento */}
             <div className="mt-6 flex justify-center">
               <button
                 onClick={handleSubmit}
@@ -290,22 +250,22 @@ const ExtrairPdfPage: FC = () => {
               </button>
             </div>
 
-            {/* REFINAMENTO DE LAYOUT: Mensagem de status */}
-             {statusMessage && (
-                <div className={`mt-6 p-4 rounded-lg text-center font-medium transition-all duration-300 ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
-                    {statusMessage.text}
-                </div>
+            {/* Mensagem de status */}
+            {statusMessage && (
+              <div className={`mt-6 p-4 rounded-lg text-center font-medium transition-all duration-300 ${ statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : statusMessage.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+                {statusMessage.text}
+              </div>
             )}
           </div>
         )}
         {activeTab === 'logs' && (
           <div className="bg-white rounded-lg shadow-md">
-             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
-                <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md">
-                    <i className="fas fa-download"></i>
-                    <span>Exportar Logs</span>
-                </button>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-800">Histórico de Processamento</h2>
+              <button onClick={handleExportLogs} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md">
+                <i className="fas fa-download"></i>
+                <span>Exportar Logs</span>
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -326,9 +286,9 @@ const ExtrairPdfPage: FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-xs" title={log.file}>{log.file}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{log.action}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                           <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ log.result === 'Sucesso' ? 'bg-green-100 text-green-800' :  log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
-                                {log.result}
-                           </span>
+                          <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${ log.result === 'Sucesso' ? 'bg-green-100 text-green-800' :  log.result === 'Erro' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+                            {log.result}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600 truncate max-w-sm" title={log.details}>{log.details}</td>
                       </tr>
@@ -345,6 +305,18 @@ const ExtrairPdfPage: FC = () => {
         )}
       </div>
     </div>
+  );
+};
+
+// --- Page export: envolve o conteúdo com o DashboardLayout ---
+const ExtrairPdfPage: FC = () => {
+  const modules = [
+    { name: 'Extrair PDF', path: '/modulos/extrair-pdf', icon: (() => null) as any },
+  ];
+  return (
+    <DashboardLayout modules={modules}>
+      <ExtrairPdfInner />
+    </DashboardLayout>
   );
 };
 
