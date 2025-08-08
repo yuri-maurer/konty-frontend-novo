@@ -22,46 +22,40 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // --- Painel 2º nível ---
+  // Painel e favoritos
   const [panel, setPanel] = useState<PanelType>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  // Carrega favoritos do localStorage
+  // Carregar favoritos do localStorage
   useEffect(() => {
-    const stored = localStorage.getItem('moduleFavorites');
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('moduleFavorites') : null;
     if (stored) {
       try { setFavorites(JSON.parse(stored)); } catch { setFavorites([]); }
     }
   }, []);
 
-  const persistFavorites = (next: string[]) => {
-    setFavorites(next);
-    localStorage.setItem('moduleFavorites', JSON.stringify(next));
-    // Emite um evento custom para outras telas ouvirem, se quiserem
-    window.dispatchEvent(new CustomEvent('favorites-updated', { detail: next }));
-  };
-
-  const toggleFavorite = (path: string) => {
-    persistFavorites(
-      favorites.includes(path) ? favorites.filter((p) => p !== path) : [...favorites, path]
-    );
-  };
+  // Ouvir sincronização vinda do dashboard (favorites-updated)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string[]>).detail || [];
+      setFavorites(detail);
+      try { localStorage.setItem('moduleFavorites', JSON.stringify(detail)); } catch {}
+    };
+    window.addEventListener('favorites-updated', handler as EventListener);
+    return () => window.removeEventListener('favorites-updated', handler as EventListener);
+  }, []);
 
   const openPanel = (type: PanelType) => setPanel(type);
   const closePanel = () => setPanel(null);
 
-  // ESC fecha painel ou limpa busca
+  // ESC: fecha painel ou limpa busca | / foca busca
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const isTyping = tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
 
       if (e.key === 'Escape') {
-        if (panel) {
-          e.preventDefault();
-          closePanel();
-          return;
-        }
+        if (panel) { e.preventDefault(); closePanel(); return; }
         if (document.activeElement === inputRef.current || !isTyping) {
           setQuery('');
           emitSearch('');
@@ -96,20 +90,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
     inputRef.current?.focus();
   };
 
-  // Render lista do painel conforme tipo
+  // Itens do painel conforme tipo
   const panelItems: Module[] =
     panel === 'modulos'
       ? modules
       : modules.filter((m) => favorites.includes(m.path));
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar
         modules={modules}
         onOpenPanel={openPanel}
       />
 
-      {/* Painel secundário (funcional, sem animação) */}
+      {/* Painel secundário (sem animação) */}
       {panel && (
         <aside className="w-72 bg-white border-r border-gray-200 flex flex-col">
           <div className="h-14 flex items-center justify-between px-3 border-b">
@@ -133,32 +127,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
               </p>
             ) : (
               <ul className="p-2 space-y-1">
-                {panelItems.map((m) => {
-                  const Icon = m.icon;
-                  const isFav = favorites.includes(m.path);
-                  return (
-                    <li key={m.path} className="flex items-center justify-between">
-                      <button
-                        onClick={() => router.push(m.path)}
-                        className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50 text-left flex-1"
-                        title={m.name}
-                      >
-                        <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
-                          <Icon size={18} className="text-blue-600" />
-                        </div>
-                        <span className="text-sm text-gray-800 truncate">{m.name}</span>
-                      </button>
-                      <button
-                        onClick={() => toggleFavorite(m.path)}
-                        className={`px-2 py-1 text-sm rounded-md ${isFav ? 'text-yellow-600' : 'text-gray-400'} hover:bg-gray-100`}
-                        aria-label={isFav ? 'Desfavoritar' : 'Favoritar'}
-                        title={isFav ? 'Desfavoritar' : 'Favoritar'}
-                      >
-                        {isFav ? '★' : '☆'}
-                      </button>
-                    </li>
-                  );
-                })}
+                {panelItems.map((m) => (
+                  <li key={m.path} className="flex items-center justify-between">
+                    <button
+                      onClick={() => router.push(m.path)}
+                      className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-50 text-left flex-1"
+                      title={m.name}
+                    >
+                      <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
+                        {/* Ícone renderizado no card do painel */}
+                        <span className="text-blue-600">•</span>
+                      </div>
+                      <span className="text-sm text-gray-800 truncate">{m.name}</span>
+                    </button>
+                    <span
+                      className={`px-2 py-1 text-sm rounded-md ${favorites.includes(m.path) ? 'text-yellow-600' : 'text-gray-300'}`}
+                      title={favorites.includes(m.path) ? 'Favorito' : 'Não favorito'}
+                      aria-label={favorites.includes(m.path) ? 'Favorito' : 'Não favorito'}
+                    >
+                      {favorites.includes(m.path) ? '★' : '☆'}
+                    </span>
+                  </li>
+                ))}
               </ul>
             )}
           </div>
@@ -167,7 +157,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
 
       {/* Área principal */}
       <main className="flex flex-col flex-1 overflow-y-hidden">
-        {/* Topbar clean: apenas voltar + busca */}
+        {/* Topbar clean: voltar + busca */}
         <header className="h-14 flex items-center gap-3 px-3 sm:px-4 bg-white border-b border-gray-200">
           <button
             onClick={() => router.back()}
@@ -205,9 +195,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, modules }) 
           </div>
         </header>
 
-        {/* Conteúdo com container mais enxuto */}
+        {/* Conteúdo com gap reduzido */}
         <section className="flex-1 overflow-y-auto">
-          <div className="max-w-6xl mx-auto px-4 lg:px-5 py-5">
+          <div className="px-4 lg:px-5 py-5">
             {children}
           </div>
         </section>
