@@ -12,8 +12,9 @@ interface Module {
 
 interface SidebarProps {
   modules: Module[];
-  collapsed?: boolean; // reservado para próximo passo
-  onToggle?: () => void; // reservado para próximo passo
+  collapsed?: boolean;
+  onToggle?: () => void;
+  onOpenPanel?: (type: 'favoritos' | 'modulos') => void;
 }
 
 const getInitials = (email?: string | null) => {
@@ -22,7 +23,7 @@ const getInitials = (email?: string | null) => {
   return handle.slice(0, 2).toUpperCase();
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
+const Sidebar: React.FC<SidebarProps> = ({ modules, onOpenPanel }) => {
   const router = useRouter();
   const supabaseClient = useSupabaseClient();
   const user = useUser();
@@ -53,18 +54,18 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
         </Link>
         <button
           className="w-full text-left px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition"
-          title="Em breve: painel de favoritos"
+          onClick={() => onOpenPanel && onOpenPanel('favoritos')}
         >
           Favoritos
         </button>
         <button
           className="w-full text-left px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition"
-          title="Em breve: painel de módulos"
+          onClick={() => onOpenPanel && onOpenPanel('modulos')}
         >
           Módulos
         </button>
 
-        {/* Lista simples (ainda sem painel secundário) */}
+        {/* Lista simples (continua como navegação rápida) */}
         <p className="px-3 pt-3 text-xs font-semibold text-gray-400 uppercase">Navegação</p>
         <ul className="mt-1 space-y-1">
           {modules.map((m) => (
