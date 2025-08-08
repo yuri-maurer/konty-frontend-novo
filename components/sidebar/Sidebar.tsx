@@ -12,7 +12,7 @@ const STORAGE_KEY = 'sidebar:view';
 interface Module {
   name: string;
   path: string;
-  icon: IconType; // mantido por compat, mas NÃO é usado na lista do painel
+  icon: IconType;
 }
 
 interface SidebarProps {
@@ -33,7 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
-  // ---------- Favoritos ----------
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
@@ -76,7 +75,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
   };
 
-  // ---------- Navegação em 2 níveis ----------
   const [view, setView] = useState<View>('root');
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
   const panelFirstRef = useRef<HTMLButtonElement>(null);
@@ -107,11 +105,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [view]);
 
-  const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
-    router.push('/login');
-  };
-
   const panelList = useMemo(() => {
     if (view === 'modulos') return modules;
     if (view === 'favoritos') return modules.filter(m => favorites.includes(m.path));
@@ -122,20 +115,17 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
 
   return (
     <aside className="bg-white flex flex-col border-r border-gray-200 w-[280px] overflow-hidden">
-      {/* Brand */}
       <div className="h-14 flex items-center px-4">
         <Link href="/dashboard" className="text-2xl font-bold text-blue-700" onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, 'root'); } catch {} }}>
           Konty Sistemas
         </Link>
       </div>
 
-      {/* Área deslizável: ROOT ↔ PAINEL */}
       <div className="relative flex-1 overflow-hidden">
         <div
           className={`absolute inset-0 flex transition-transform duration-300 ease-out ${view === 'root' ? 'translate-x-0' : '-translate-x-1/2'}`}
           style={{ width: '200%' }}
         >
-          {/* ROOT */}
           <div className="w-1/2 flex flex-col overflow-y-auto px-2 pt-2 space-y-1">
             <Link
               href="/dashboard"
@@ -176,7 +166,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             </button>
           </div>
 
-          {/* PAINEL */}
           <div className="w-1/2 flex flex-col border-l border-gray-100">
             <div className="h-14 flex items-center justify-between px-2 sm:px-3 border-b">
               <div className="flex items-center gap-2">
@@ -211,12 +200,10 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                         <button
                           ref={idx === 0 ? panelFirstRef : undefined}
                           onClick={() => { try { sessionStorage.setItem(STORAGE_KEY, view); } catch {} ; router.push(m.path); }}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
+                          className={`flex items-center gap-0 px-3 py-2 rounded-md text-left flex-1 bg-white hover:bg-gray-50 ${isActive ? 'bg-blue-50 text-blue-700' : ''}`}
                           title={m.name}
                         >
-                          {/* ÍCONE DE MÓDULO REMOVIDO — usamos apenas o marcador */}
-                          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-700' : 'bg-blue-600'}`} />
-                          <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
+                          <span className={`text-base font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleFavorite(m.path); }}
@@ -237,7 +224,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
         </div>
       </div>
 
-      {/* Rodapé */}
       <div className="border-t border-gray-200 p-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold">
