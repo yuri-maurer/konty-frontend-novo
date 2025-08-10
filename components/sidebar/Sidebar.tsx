@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-import { FiHome, FiStar, FiPackage, FiChevronRight } from 'react-icons/fi';
+// Adicionado FiShield para o novo ícone de admin
+import { FiHome, FiStar, FiPackage, FiChevronRight, FiShield } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 
 type View = 'root' | 'favoritos' | 'modulos';
@@ -33,17 +34,46 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
+  // --- NOVO ESTADO PARA A FUNÇÃO DO USUÁRIO ---
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // --- NOVO EFEITO PARA BUSCAR A FUNÇÃO (ROLE) DO USUÁRIO ---
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (!user) {
+        setUserRole(null);
+        return;
+      }
+      try {
+        // Busca a 'role' na tabela 'profiles' usando o ID do usuário logado
+        const { data, error } = await supabaseClient
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single(); // Esperamos apenas um resultado
+
+        // Se o perfil não for encontrado, assume-se 'user' como padrão
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        
+        setUserRole(data?.role || 'user');
+      } catch (error) {
+        console.error("Erro ao buscar a função do usuário:", error);
+        setUserRole('user'); // Garante um fallback em caso de erro
+      }
+    }
+    fetchUserRole();
+  }, [user, supabaseClient]);
+
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
-  // EFEITO MODIFICADO: Adiciona uma limpeza defensiva no carregamento inicial.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('moduleFavorites');
       const storedFavorites = raw ? JSON.parse(raw) : [];
-
-      // Apenas aceita favoritos que já estão no formato de path (começam com '/').
-      // Isso evita que a UI mostre uma contagem errada caso carregue com dados antigos.
       if (Array.isArray(storedFavorites)) {
         const cleanedFavorites = storedFavorites.filter(fav => typeof fav === 'string' && fav.startsWith('/'));
         setFavorites(cleanedFavorites);
@@ -55,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
       setFavorites([]);
     }
     setFavHydrated(true);
-  }, []); // Roda apenas uma vez na montagem do componente.
+  }, []);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -77,10 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   }, []);
 
   useEffect(() => {
-    // A escrita no localStorage é controlada principalmente pelo dashboard.
-    // Este componente reage às mudanças.
     if (!favHydrated) return;
-    // A linha abaixo é mantida para o caso de a sidebar modificar os favoritos diretamente.
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
@@ -183,6 +210,21 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               </span>
               <FiChevronRight />
             </button>
+            
+            {/* --- NOVO LINK DE ADMINISTRAÇÃO (RENDERIZAÇÃO CONDICIONAL) --- */}
+            {userRole === 'admin' && (
+              <Link
+                href="/admin"
+                className={`flex items-center justify-between px-3 py-2 rounded-md transition group mt-4 border-t pt-4 ${
+                  router.pathname.startsWith('/admin') ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <FiShield className="group-hover:text-indigo-500" />
+                  Administração
+                </span>
+              </Link>
+            )}
           </div>
 
           <div className="w-1/2 flex flex-col border-l border-gray-100">
