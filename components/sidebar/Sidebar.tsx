@@ -18,9 +18,6 @@ interface Module {
 
 interface SidebarProps {
   modules: Module[];
-  collapsed?: boolean;
-  onToggle?: () => void;
-  onOpenPanel?: (type: 'favoritos' | 'modulos') => void;
 }
 
 const getInitials = (email?: string | null) => {
@@ -34,33 +31,40 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
-  // --- NOVO ESTADO PARA A FUNÇÃO DO USUÁRIO ---
+  // --- ESTADO CORRIGIDO PARA A FUNÇÃO DO UTILIZADOR E CARREGAMENTO ---
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true); // 1. Adicionado estado de loading
 
-  // --- NOVO EFEITO PARA BUSCAR A FUNÇÃO (ROLE) DO USUÁRIO ---
+  // --- EFEITO CORRIGIDO PARA BUSCAR A FUNÇÃO (ROLE) DO UTILIZADOR ---
   useEffect(() => {
     async function fetchUserRole() {
+      // Inicia o carregamento
+      setRoleLoading(true);
+      
       if (!user) {
         setUserRole(null);
+        setRoleLoading(false); // Se não há utilizador, terminamos o carregamento
         return;
       }
+
       try {
-        // Busca a 'role' na tabela 'profiles' usando o ID do usuário logado
         const { data, error } = await supabaseClient
           .from('profiles')
           .select('role')
           .eq('id', user.id)
-          .single(); // Esperamos apenas um resultado
+          .single();
 
-        // Se o perfil não for encontrado, assume-se 'user' como padrão
         if (error && error.code !== 'PGRST116') {
           throw error;
         }
         
         setUserRole(data?.role || 'user');
       } catch (error) {
-        console.error("Erro ao buscar a função do usuário:", error);
-        setUserRole('user'); // Garante um fallback em caso de erro
+        console.error("Erro ao buscar a função do utilizador na sidebar:", error);
+        setUserRole('user');
+      } finally {
+        // 2. Finaliza o carregamento em qualquer cenário (sucesso ou erro)
+        setRoleLoading(false); 
       }
     }
     fetchUserRole();
@@ -211,8 +215,9 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               <FiChevronRight />
             </button>
             
-            {/* --- NOVO LINK DE ADMINISTRAÇÃO (RENDERIZAÇÃO CONDICIONAL) --- */}
-            {userRole === 'admin' && (
+            {/* --- LINK DE ADMINISTRAÇÃO CORRIGIDO (RENDERIZAÇÃO CONDICIONAL) --- */}
+            {/* 3. Apenas mostra o link se o carregamento terminou E o utilizador é admin */}
+            {!roleLoading && userRole === 'admin' && (
               <Link
                 href="/admin"
                 className={`flex items-center justify-between px-3 py-2 rounded-md transition group mt-4 border-t pt-4 ${
@@ -291,7 +296,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
             {getInitials(user?.email)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">{user?.email || 'Usuário'}</p>
+            <p className="text-sm font-medium text-gray-800 truncate">{user?.email || 'Utilizador'}</p>
             <div className="flex items-center gap-3 mt-1">
               <Link href="/perfil" className="text-xs text-gray-600 hover:underline">Perfil</Link>
               <button onClick={async () => { await supabaseClient.auth.signOut(); router.push('/login'); }} className="text-xs text-red-600 hover:underline">Sair</button>
