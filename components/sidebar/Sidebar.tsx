@@ -36,13 +36,26 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
+  // EFEITO MODIFICADO: Adiciona uma limpeza defensiva no carregamento inicial.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('moduleFavorites');
-      if (raw) setFavorites(JSON.parse(raw));
-    } catch {}
+      const storedFavorites = raw ? JSON.parse(raw) : [];
+
+      // Apenas aceita favoritos que já estão no formato de path (começam com '/').
+      // Isso evita que a UI mostre uma contagem errada caso carregue com dados antigos.
+      if (Array.isArray(storedFavorites)) {
+        const cleanedFavorites = storedFavorites.filter(fav => typeof fav === 'string' && fav.startsWith('/'));
+        setFavorites(cleanedFavorites);
+      } else {
+        setFavorites([]);
+      }
+    } catch (error) {
+      console.error("Falha ao carregar favoritos na sidebar:", error);
+      setFavorites([]);
+    }
     setFavHydrated(true);
-  }, []);
+  }, []); // Roda apenas uma vez na montagem do componente.
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -64,7 +77,10 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   }, []);
 
   useEffect(() => {
+    // A escrita no localStorage é controlada principalmente pelo dashboard.
+    // Este componente reage às mudanças.
     if (!favHydrated) return;
+    // A linha abaixo é mantida para o caso de a sidebar modificar os favoritos diretamente.
     try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
@@ -72,7 +88,10 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   }, [favorites, favHydrated]);
 
   const toggleFavorite = (path: string) => {
-    setFavorites(prev => prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]);
+    setFavorites(prev => {
+        const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
+        return Array.from(new Set(next));
+    });
   };
 
   const [view, setView] = useState<View>('root');

@@ -31,6 +31,41 @@ const ALL_MODULES: Record<string, ModuleDef> = {
   },
 };
 
+/**
+ * Normaliza a lista de favoritos, convertendo chaves antigas para paths
+ * e removendo duplicatas ou entradas inválidas.
+ * @param rawFavorites - O array lido diretamente do localStorage.
+ * @param allModules - O dicionário de todos os módulos para mapear chaves para paths.
+ * @returns Um array de paths de favoritos limpo e normalizado.
+ */
+const normalizeFavorites = (rawFavorites: unknown, allModules: Record<string, ModuleDef>): string[] => {
+  if (!Array.isArray(rawFavorites)) {
+    return [];
+  }
+
+  const pathMap = Object.values(allModules).reduce((acc, mod) => {
+    acc[mod.key] = mod.path;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const normalized = rawFavorites.map(fav => {
+    // Se já for um path, mantém.
+    if (typeof fav === 'string' && fav.startsWith('/')) {
+      return fav;
+    }
+    // Se for uma chave antiga, converte para path.
+    if (typeof fav === 'string' && pathMap[fav]) {
+      return pathMap[fav];
+    }
+    // Caso contrário, é uma entrada inválida e será descartada.
+    return null;
+  }).filter((p): p is string => p !== null); // Filtra nulos e garante o tipo.
+
+  // Remove duplicatas resultantes da migração e retorna.
+  return Array.from(new Set(normalized));
+};
+
+
 export default function DashboardPage() {
   const router = useRouter();
   const user = useUser();
@@ -72,13 +107,30 @@ export default function DashboardPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
+  // EFEITO MODIFICADO: Adiciona a lógica de normalização no carregamento inicial.
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setFavorites(JSON.parse(stored));
-    } catch {}
+      const storedRaw = localStorage.getItem(STORAGE_KEY);
+      const rawFavorites = storedRaw ? JSON.parse(storedRaw) : [];
+      
+      // 1. Normaliza a lista de favoritos usando a função helper.
+      const cleanedFavorites = normalizeFavorites(rawFavorites, ALL_MODULES);
+
+      // 2. Atualiza o estado local com a lista já limpa.
+      setFavorites(cleanedFavorites);
+
+      // 3. Se a normalização alterou a lista, salva de volta no localStorage
+      //    e dispara um evento para notificar outros componentes (como a Sidebar).
+      if (JSON.stringify(rawFavorites) !== JSON.stringify(cleanedFavorites)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanedFavorites));
+        window.dispatchEvent(new CustomEvent('favorites-updated', { detail: cleanedFavorites }));
+      }
+    } catch (error) {
+      console.error("Falha ao carregar ou normalizar favoritos:", error);
+      setFavorites([]);
+    }
     setFavHydrated(true);
-  }, []);
+  }, []); // Roda apenas uma vez na montagem do componente.
 
   useEffect(() => {
     const handler = (e: Event) => {
