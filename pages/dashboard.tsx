@@ -4,123 +4,132 @@ import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 
-type Status = 'Ativo' | 'Pendente' | 'Novo';
-
+// A interface do Módulo permanece a mesma, mas agora ela reflete
+// a estrutura da sua tabela 'modulos' no Supabase.
 interface ModuleDef {
   key: string;
   name: string;
   path: string;
   description?: string;
-  category?: string;
-  status?: Status;
-  color?: string;
   iconClass?: string;
+  // Outros campos como 'category', 'status', 'color' foram removidos
+  // pois não estão na nova tabela 'modulos'. Podem ser adicionados lá se necessário.
 }
 
-const ALL_MODULES: Record<string, ModuleDef> = {
-  'extrair-pdf': {
-    key: 'extrair-pdf',
-    name: 'Extrair PDF',
-    path: '/modulos/extrair-pdf',
-    // ATUALIZAÇÃO DE TEXTO:
-    description: 'Separa recibo de pagamento por condomínio',
-    category: 'Documentos',
-    status: 'Ativo',
-    color: 'blue',
-    iconClass: 'fa-regular fa-file-lines',
-  },
-};
-
 /**
- * Normaliza a lista de favoritos, convertendo chaves antigas para paths
- * e removendo duplicatas ou entradas inválidas.
+ * Normaliza a lista de favoritos, convertendo chaves antigas para paths.
+ * Esta função agora aceita um array de ModuleDef, vindo diretamente do Supabase.
  * @param rawFavorites - O array lido diretamente do localStorage.
- * @param allModules - O dicionário de todos os módulos para mapear chaves para paths.
+ * @param allModules - O array de todos os módulos disponíveis no sistema.
  * @returns Um array de paths de favoritos limpo e normalizado.
  */
-const normalizeFavorites = (rawFavorites: unknown, allModules: Record<string, ModuleDef>): string[] => {
-  if (!Array.isArray(rawFavorites)) {
+const normalizeFavorites = (rawFavorites: unknown, allModules: ModuleDef[]): string[] => {
+  if (!Array.isArray(rawFavorites) || allModules.length === 0) {
     return [];
   }
 
-  const pathMap = Object.values(allModules).reduce((acc, mod) => {
+  const pathMap = allModules.reduce((acc, mod) => {
     acc[mod.key] = mod.path;
     return acc;
   }, {} as Record<string, string>);
 
   const normalized = rawFavorites.map(fav => {
-    // Se já for um path, mantém.
-    if (typeof fav === 'string' && fav.startsWith('/')) {
-      return fav;
-    }
-    // Se for uma chave antiga, converte para path.
-    if (typeof fav === 'string' && pathMap[fav]) {
-      return pathMap[fav];
-    }
-    // Caso contrário, é uma entrada inválida e será descartada.
+    if (typeof fav === 'string' && fav.startsWith('/')) return fav;
+    if (typeof fav === 'string' && pathMap[fav]) return pathMap[fav];
     return null;
-  }).filter((p): p is string => p !== null); // Filtra nulos e garante o tipo.
+  }).filter((p): p is string => p !== null);
 
-  // Remove duplicatas resultantes da migração e retorna.
   return Array.from(new Set(normalized));
 };
-
 
 export default function DashboardPage() {
   const router = useRouter();
   const user = useUser();
   const supabase = useSupabaseClient();
 
+  // --- NOVOS ESTADOS PARA CARREGAMENTO DINÂMICO ---
+  // Armazena a lista de TODOS os módulos vindos da tabela 'modulos'
+  const [allModules, setAllModules] = useState<ModuleDef[]>([]);
+  // Armazena as chaves dos módulos que o usuário atual tem permissão para usar
   const [allowedKeys, setAllowedKeys] = useState<string[]>([]);
+  
+  // Controla o estado de carregamento das duas fontes de dados
+  const [loadingModules, setLoadingModules] = useState(true);
   const [loadingPerms, setLoadingPerms] = useState(true);
 
+  // --- EFEITO 1: BUSCAR O CATÁLOGO DE MÓDULOS ---
+  // Este useEffect roda uma vez para buscar a lista completa de módulos do Supabase.
   useEffect(() => {
-    let isMounted = true;
-    async function loadPerms() {
+    async function fetchAllModules() {
       try {
-        if (!user) return;
+        // Seleciona todas as colunas de todos os registros da tabela 'modulos'
+        const { data, error } = await supabase.from('modulos').select('*');
+        if (error) throw error;
+        setAllModules(data || []);
+      } catch (error) {
+        console.error("Erro ao buscar o catálogo de módulos:", error);
+        setAllModules([]); // Em caso de erro, a lista fica vazia
+      } finally {
+        setLoadingModules(false);
+      }
+    }
+    fetchAllModules();
+  }, [supabase]);
+
+  // --- EFEITO 2: BUSCAR AS PERMISSÕES DO USUÁRIO ---
+  // Este useEffect busca as permissões do usuário logado.
+  useEffect(() => {
+    async function fetchUserPermissions() {
+      if (!user) {
+        setLoadingPerms(false);
+        return;
+      };
+      try {
         const { data, error } = await supabase
           .from('permissoes')
-          .select('modulo_nome, ativo')
+          .select('modulo_nome')
           .eq('user_id', user.id)
           .eq('ativo', true);
         if (error) throw error;
         const keys = (data || []).map((r: any) => r.modulo_nome).filter(Boolean);
-        if (isMounted) setAllowedKeys(keys);
-      } catch {
-        if (isMounted) setAllowedKeys(Object.keys(ALL_MODULES));
+        setAllowedKeys(keys);
+      } catch (error) {
+        console.error("Erro ao buscar permissões do usuário:", error);
+        setAllowedKeys([]);
       } finally {
-        if (isMounted) setLoadingPerms(false);
+        setLoadingPerms(false);
       }
     }
-    loadPerms();
-    return () => { isMounted = false; };
+    fetchUserPermissions();
   }, [supabase, user]);
 
+  // --- LÓGICA DE MÓDULOS PERMITIDOS (useMemo) ---
+  // Este hook reage às mudanças e calcula a lista final de módulos permitidos
+  // cruzando a lista de todos os módulos com as chaves de permissão do usuário.
   const allowedModules = useMemo<ModuleDef[]>(() => {
-    const keys = allowedKeys.length ? allowedKeys : Object.keys(ALL_MODULES);
-    return keys.map((k) => ALL_MODULES[k]).filter(Boolean);
-  }, [allowedKeys]);
+    if (loadingModules || loadingPerms) return [];
+    return allModules.filter(module => allowedKeys.includes(module.key));
+  }, [allModules, allowedKeys, loadingModules, loadingPerms]);
 
-  // ---------- Favoritos (PADRÃO POR PATH, para sincronizar com Sidebar) ----------
+  // ---------- LÓGICA DE FAVORITOS (Adaptada) ----------
   const STORAGE_KEY = 'moduleFavorites';
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
-  // EFEITO MODIFICADO: Adiciona a lógica de normalização no carregamento inicial.
+  // Este useEffect agora depende do carregamento dos módulos para poder normalizar.
   useEffect(() => {
+    // Só executa a lógica de normalização DEPOIS que a lista de módulos for carregada.
+    if (loadingModules) return; 
+    
     try {
       const storedRaw = localStorage.getItem(STORAGE_KEY);
       const rawFavorites = storedRaw ? JSON.parse(storedRaw) : [];
       
-      // 1. Normaliza a lista de favoritos usando a função helper.
-      const cleanedFavorites = normalizeFavorites(rawFavorites, ALL_MODULES);
+      // Usa a lista 'allModules' vinda do banco de dados para a normalização.
+      const cleanedFavorites = normalizeFavorites(rawFavorites, allModules);
 
-      // 2. Atualiza o estado local com a lista já limpa.
       setFavorites(cleanedFavorites);
 
-      // 3. Se a normalização alterou a lista, salva de volta no localStorage
-      //    e dispara um evento para notificar outros componentes (como a Sidebar).
       if (JSON.stringify(rawFavorites) !== JSON.stringify(cleanedFavorites)) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanedFavorites));
         window.dispatchEvent(new CustomEvent('favorites-updated', { detail: cleanedFavorites }));
@@ -130,8 +139,9 @@ export default function DashboardPage() {
       setFavorites([]);
     }
     setFavHydrated(true);
-  }, []); // Roda apenas uma vez na montagem do componente.
+  }, [loadingModules, allModules]); // Depende de 'allModules' para funcionar corretamente.
 
+  // O restante da lógica de favoritos permanece igual, reagindo a eventos.
   useEffect(() => {
     const handler = (e: Event) => {
       const value = (e as CustomEvent<string[]>).detail || [];
@@ -167,6 +177,8 @@ export default function DashboardPage() {
     });
   };
 
+  const isLoading = loadingModules || loadingPerms;
+
   return (
     <DashboardLayout
       modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
@@ -175,11 +187,15 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Módulos ativos</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{allowedModules.length}</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">
+            {isLoading ? '...' : allowedModules.length}
+          </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Favoritos</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-1">{favorites.length}</p>
+          <p className="text-2xl font-semibold text-gray-900 mt-1">
+            {isLoading ? '...' : favorites.length}
+          </p>
         </div>
       </div>
 
@@ -189,7 +205,7 @@ export default function DashboardPage() {
           Acesso Rápido
         </h2>
 
-        {loadingPerms ? (
+        {isLoading ? (
           <div className="text-sm text-gray-500">Carregando módulos…</div>
         ) : allowedModules.length === 0 ? (
           <div className="text-sm text-gray-500">Nenhum módulo liberado para este usuário.</div>
@@ -202,7 +218,6 @@ export default function DashboardPage() {
                 onClick={() => router.push(m.path)}
                 className="group text-left bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition rounded-xl p-4 relative focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                {/* Favoritar por PATH (compatível com Sidebar) */}
                 <span className="absolute top-2 right-2">
                   <button
                     type="button"
@@ -215,7 +230,6 @@ export default function DashboardPage() {
                   </button>
                 </span>
 
-                {/* Ícone + Título */}
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 grid place-items-center rounded-lg bg-gray-50 border border-gray-200">
                     <i className={m.iconClass || 'fa-regular fa-circle'} />
