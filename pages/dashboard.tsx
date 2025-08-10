@@ -14,6 +14,7 @@ interface ModuleDef {
   category?: string;
   status?: Status;
   color?: string;
+  iconClass?: string;
 }
 
 const ALL_MODULES: Record<string, ModuleDef> = {
@@ -21,10 +22,11 @@ const ALL_MODULES: Record<string, ModuleDef> = {
     key: 'extrair-pdf',
     name: 'Extrair PDF',
     path: '/modulos/extrair-pdf',
-    description: 'Extrai recibos de PDFs de notas fiscais.',
+    description: 'Extrai textos e recibos de PDFs de notas fiscais.',
     category: 'Documentos',
     status: 'Ativo',
     color: 'blue',
+    iconClass: 'fa-regular fa-file-lines',
   },
 };
 
@@ -64,7 +66,6 @@ export default function DashboardPage() {
     return keys.map((k) => ALL_MODULES[k]).filter(Boolean);
   }, [allowedKeys]);
 
-  // ---------- Favoritos (hidratar antes de persistir) ----------
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
@@ -103,11 +104,18 @@ export default function DashboardPage() {
     }
   }, [favorites, favHydrated]);
 
+  const isFavorite = (key: string) => favorites.includes(key);
+  const toggleFavorite = (key: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      return Array.from(new Set(next));
+    });
+  };
+
   return (
     <DashboardLayout
       modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
     >
-      {/* SOMENTE os dois blocos solicitados */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Módulos ativos</p>
@@ -118,6 +126,50 @@ export default function DashboardPage() {
           <p className="text-2xl font-semibold text-gray-900 mt-1">{favorites.length}</p>
         </div>
       </div>
+
+      {/* ===== Seção Acesso Rápido ===== */}
+      <section aria-labelledby="acesso-rapido-title" className="mb-4">
+        <h2 id="acesso-rapido-title" className="text-lg font-semibold text-gray-900 mb-3">
+          Acesso Rápido
+        </h2>
+
+        {loadingPerms ? (
+          <div className="text-sm text-gray-500">Carregando módulos…</div>
+        ) : allowedModules.length === 0 ? (
+          <div className="text-sm text-gray-500">Nenhum módulo liberado para este usuário.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {allowedModules.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => router.push(m.path)}
+                className="group text-left bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition rounded-xl p-4 relative"
+              >
+                <span className="absolute top-2 right-2">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(m.key); }}
+                    className="p-1 rounded-md border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50"
+                  >
+                    <i className={isFavorite(m.key) ? 'fa-solid fa-star text-yellow-500' : 'fa-regular fa-star'} />
+                  </button>
+                </span>
+
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 grid place-items-center rounded-lg bg-gray-50 border border-gray-200">
+                    <i className={m.iconClass || 'fa-regular fa-circle'} />
+                  </div>
+                  <div>
+                    <div className="text-base font-medium text-gray-900">{m.name}</div>
+                    <p className="text-xs text-gray-500">{m.description || 'Abrir módulo'}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     </DashboardLayout>
   );
 }
