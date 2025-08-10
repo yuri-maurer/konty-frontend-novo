@@ -32,7 +32,12 @@ const useAdminCheck = () => {
         // Se não houver utilizador, espera um pouco para dar tempo ao Supabase de carregar
         // e depois, se ainda não houver, redireciona para o login.
         const timer = setTimeout(() => {
-            if(!user) router.push('/login');
+            if(!user) {
+                // Apenas redireciona se o utilizador ainda for nulo após o tempo de espera
+                if (!supabase.auth.getSession()) {
+                    router.push('/login');
+                }
+            }
         }, 500);
         return () => clearTimeout(timer);
       }
@@ -81,6 +86,7 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   useEffect(() => {
     async function fetchData() {
       try {
+        // CORREÇÃO: Agora também seleciona o 'path' para corresponder à interface ModuleDef
         const { data: modulesData, error: modulesError } = await supabase
           .from('modulos')
           .select('key, name, path');
@@ -236,8 +242,6 @@ export default function AdminPage() {
       fetchUsers();
     }
   }, [isAdmin, supabase]);
-
-  const isLoading = adminLoading || usersLoading;
 
   // Mostra o ecrã de carregamento enquanto a verificação de admin está a decorrer.
   if (adminLoading) {
