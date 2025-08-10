@@ -29,8 +29,12 @@ const useAdminCheck = () => {
   useEffect(() => {
     async function checkRole() {
       if (!user) {
-        setTimeout(() => router.push('/login'), 100);
-        return;
+        // Se não houver utilizador, espera um pouco para dar tempo ao Supabase de carregar
+        // e depois, se ainda não houver, redireciona para o login.
+        const timer = setTimeout(() => {
+            if(!user) router.push('/login');
+        }, 500);
+        return () => clearTimeout(timer);
       }
       try {
         const { data, error } = await supabase
@@ -38,12 +42,22 @@ const useAdminCheck = () => {
           .select('role')
           .eq('id', user.id)
           .single();
-        if (error || data?.role !== 'admin') {
-          router.push('/dashboard');
-        } else {
-          setIsAdmin(true);
+
+        // CORREÇÃO: Trata o erro "PGRST116" (nenhuma linha encontrada) como um caso válido,
+        // em que o utilizador simplesmente não é admin, em vez de um erro que causa redirecionamento.
+        if (error && error.code !== 'PGRST116') {
+          throw error;
         }
-      } catch {
+
+        if (data?.role === 'admin') {
+          setIsAdmin(true);
+        } else {
+          // Se não for admin, redireciona para o dashboard.
+          router.push('/dashboard');
+        }
+
+      } catch (error) {
+        console.error("Erro ao verificar a função de admin:", error);
         router.push('/dashboard');
       } finally {
         setLoading(false);
@@ -67,15 +81,12 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   useEffect(() => {
     async function fetchData() {
       try {
-        // 1. Buscar todos os módulos disponíveis
-        // CORREÇÃO: Agora também seleciona o 'path' para corresponder à interface ModuleDef
         const { data: modulesData, error: modulesError } = await supabase
           .from('modulos')
           .select('key, name, path');
         if (modulesError) throw modulesError;
         setModules(modulesData || []);
 
-        // 2. Buscar as permissões atuais do utilizador selecionado
         const { data: permsData, error: permsError } = await supabase
           .from('permissoes')
           .select('modulo_nome')
@@ -228,7 +239,8 @@ export default function AdminPage() {
 
   const isLoading = adminLoading || usersLoading;
 
-  if (isLoading || !isAdmin) {
+  // Mostra o ecrã de carregamento enquanto a verificação de admin está a decorrer.
+  if (adminLoading) {
     return (
       <DashboardLayout modules={[]}>
         <div className="p-4">
@@ -236,6 +248,11 @@ export default function AdminPage() {
         </div>
       </DashboardLayout>
     );
+  }
+  
+  // Se, após o carregamento, o utilizador não for admin, não renderiza nada, pois o hook já o redirecionou.
+  if (!isAdmin) {
+      return null;
   }
 
   return (
