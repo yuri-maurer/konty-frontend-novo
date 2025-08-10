@@ -22,7 +22,8 @@ const ALL_MODULES: Record<string, ModuleDef> = {
     key: 'extrair-pdf',
     name: 'Extrair PDF',
     path: '/modulos/extrair-pdf',
-    description: 'Extrai textos e recibos de PDFs de notas fiscais.',
+    // ATUALIZAÇÃO DE TEXTO:
+    description: 'Separa recibo de pagamento por condomínio',
     category: 'Documentos',
     status: 'Ativo',
     color: 'blue',
@@ -66,12 +67,14 @@ export default function DashboardPage() {
     return keys.map((k) => ALL_MODULES[k]).filter(Boolean);
   }, [allowedKeys]);
 
+  // ---------- Favoritos (PADRÃO POR PATH, para sincronizar com Sidebar) ----------
+  const STORAGE_KEY = 'moduleFavorites';
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('moduleFavorites');
+      const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) setFavorites(JSON.parse(stored));
     } catch {}
     setFavHydrated(true);
@@ -88,7 +91,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'moduleFavorites') {
+      if (e.key === STORAGE_KEY) {
         try { setFavorites(JSON.parse(e.newValue || '[]')); } catch {}
       }
     };
@@ -98,16 +101,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!favHydrated) return;
-    try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites)); } catch {}
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
     }
   }, [favorites, favHydrated]);
 
-  const isFavorite = (key: string) => favorites.includes(key);
-  const toggleFavorite = (key: string) => {
+  const isFavoritePath = (path: string) => favorites.includes(path);
+  const toggleFavoritePath = (path: string) => {
     setFavorites((prev) => {
-      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
       return Array.from(new Set(next));
     });
   };
@@ -116,6 +119,7 @@ export default function DashboardPage() {
     <DashboardLayout
       modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
     >
+      {/* Blocos superiores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Módulos ativos</p>
@@ -144,25 +148,31 @@ export default function DashboardPage() {
                 key={m.key}
                 type="button"
                 onClick={() => router.push(m.path)}
-                className="group text-left bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition rounded-xl p-4 relative"
+                className="group text-left bg-white border border-gray-200 hover:border-indigo-300 hover:shadow-sm transition rounded-xl p-4 relative focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
+                {/* Favoritar por PATH (compatível com Sidebar) */}
                 <span className="absolute top-2 right-2">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(m.key); }}
+                    aria-label={isFavoritePath(m.path) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                    onClick={(e) => { e.stopPropagation(); toggleFavoritePath(m.path); }}
                     className="p-1 rounded-md border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50"
+                    title={isFavoritePath(m.path) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                   >
-                    <i className={isFavorite(m.key) ? 'fa-solid fa-star text-yellow-500' : 'fa-regular fa-star'} />
+                    <i className={isFavoritePath(m.path) ? 'fa-solid fa-star text-yellow-500' : 'fa-regular fa-star'} />
                   </button>
                 </span>
 
+                {/* Ícone + Título */}
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 grid place-items-center rounded-lg bg-gray-50 border border-gray-200">
                     <i className={m.iconClass || 'fa-regular fa-circle'} />
                   </div>
                   <div>
                     <div className="text-base font-medium text-gray-900">{m.name}</div>
-                    <p className="text-xs text-gray-500">{m.description || 'Abrir módulo'}</p>
+                    <p className="text-xs text-gray-500">
+                      {m.description || 'Abrir módulo'}
+                    </p>
                   </div>
                 </div>
               </button>
