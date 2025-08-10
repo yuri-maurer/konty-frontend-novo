@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const [roleLoading, setRoleLoading] = useState(true); // 1. Adicionado estado de loading
 
   // --- EFEITO CORRIGIDO PARA BUSCAR A FUNÇÃO (ROLE) DO UTILIZADOR ---
+  // Forçando um re-deploy com este comentário
   useEffect(() => {
     async function fetchUserRole() {
       // Inicia o carregamento
