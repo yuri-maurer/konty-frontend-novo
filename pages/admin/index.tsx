@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import type { IconType } from 'react-icons';
 
 // Hook personalizado para verificar a função do utilizador
 const useAdminCheck = () => {
@@ -51,6 +52,7 @@ interface AppUser {
 interface ModuleDef {
   key: string;
   name: string;
+  path: string; // Adicionado para passar para o layout
 }
 
 // --- NOVO COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
@@ -64,14 +66,12 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   useEffect(() => {
     async function fetchData() {
       try {
-        // 1. Buscar todos os módulos disponíveis
         const { data: modulesData, error: modulesError } = await supabase
           .from('modulos')
           .select('key, name');
         if (modulesError) throw modulesError;
         setModules(modulesData || []);
 
-        // 2. Buscar as permissões atuais do utilizador selecionado
         const { data: permsData, error: permsError } = await supabase
           .from('permissoes')
           .select('modulo_nome')
@@ -104,14 +104,12 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   const handleSaveChanges = async () => {
     setSaving(true);
     try {
-      // 1. Deletar todas as permissões existentes do utilizador para um "reset" limpo
       const { error: deleteError } = await supabase
         .from('permissoes')
         .delete()
         .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
-      // 2. Inserir as novas permissões
       const newPermsToInsert = Array.from(permissions).map(moduleKey => ({
         user_id: user.id,
         modulo_nome: moduleKey,
@@ -190,9 +188,23 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
-
-  // --- NOVO ESTADO PARA CONTROLAR O MODAL ---
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
+  
+  // --- NOVO ESTADO E EFEITO PARA BUSCAR O CATÁLOGO DE MÓDULOS ---
+  const [allModules, setAllModules] = useState<ModuleDef[]>([]);
+  useEffect(() => {
+    async function fetchAllModules() {
+      try {
+        const { data, error } = await supabase.from('modulos').select('key, name, path');
+        if (error) throw error;
+        setAllModules(data || []);
+      } catch (error) {
+        console.error("Erro ao buscar o catálogo de módulos na página de admin:", error);
+      }
+    }
+    fetchAllModules();
+  }, [supabase]);
+
 
   useEffect(() => {
     if (isAdmin) {
@@ -211,7 +223,9 @@ export default function AdminPage() {
     }
   }, [isAdmin, supabase]);
 
-  if (adminLoading || !isAdmin) {
+  const isLoading = adminLoading || usersLoading;
+
+  if (isLoading || !isAdmin) {
     return (
       <DashboardLayout modules={[]}>
         <div className="p-4">
@@ -223,7 +237,8 @@ export default function AdminPage() {
 
   return (
     <>
-      <DashboardLayout modules={[]}>
+      {/* Agora passamos a lista de módulos para o layout */}
+      <DashboardLayout modules={allModules.map(m => ({ name: m.name, path: m.path, icon: (() => null) as any }))}>
         <div className="p-4 sm:p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
             Painel de Administração
@@ -258,7 +273,6 @@ export default function AdminPage() {
                           {new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          {/* O botão agora está ativo e abre o modal */}
                           <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">
                             Gerir
                           </button>
@@ -273,7 +287,6 @@ export default function AdminPage() {
         </div>
       </DashboardLayout>
 
-      {/* --- RENDERIZAÇÃO CONDICIONAL DO MODAL --- */}
       {managingUser && (
         <ManagePermissionsModal 
           user={managingUser} 
