@@ -3,7 +3,7 @@ import { useEffect, useState, createContext, useContext, useCallback } from 'rea
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { FiPlus, FiMail, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiPlus, FiMail, FiCheckCircle, FiXCircle, FiAlertTriangle, FiTrash2 } from 'react-icons/fi';
 
 // --- INTERFACES GLOBAIS PARA A PÁGINA ---
 interface AppUser {
@@ -92,7 +92,7 @@ const useAdminCheck = () => {
   return { isAdmin, loading };
 };
 
-// --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES (COM DESIGN MELHORADO) ---
+// --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
 const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: AppUser; onClose: () => void; onPermissionsUpdate: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -173,7 +173,7 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   );
 };
 
-// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR (COM LÓGICA CORRIGIDA) ---
+// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR ---
 const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUserInvited: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -188,13 +188,9 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('invite-user', {
-        body: { email },
-      });
-
+      const { data, error } = await supabase.functions.invoke('invite-user', { body: { email } });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
       onUserInvited();
       onClose();
@@ -223,54 +219,70 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   );
 };
 
+// --- NOVO COMPONENTE: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
+const DeleteUserModal = ({ user, onClose, onConfirm }: { user: AppUser; onClose: () => void; onConfirm: () => void; }) => {
+  return (
+    <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+            <FiAlertTriangle className="h-6 w-6 text-red-600" aria-hidden="true" />
+          </div>
+          <h3 className="mt-5 text-xl font-bold text-gray-900">Excluir Utilizador</h3>
+          <div className="mt-2">
+            <p className="text-sm text-gray-600">
+              Tem a certeza que quer excluir o utilizador <span className="font-bold">{user.email}</span>?
+            </p>
+            <p className="text-sm text-red-600 mt-1">Esta ação é irreversível.</p>
+          </div>
+        </div>
+        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-center items-center gap-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100">
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">
+            Sim, Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AdminPage() {
   const { isAdmin, loading: adminLoading } = useAdminCheck();
   const supabase = useSupabaseClient();
-  const user = useUser();
+  const currentUser = useUser();
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null); // NOVO ESTADO
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
+  const showToast = useToast();
 
   const fetchPermittedModules = useCallback(async () => {
-    if (!user) return;
+    if (!currentUser) return;
     try {
-      const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { p_user_id: user.id });
+      const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { p_user_id: currentUser.id });
       if (error) throw error;
-      const newPermittedModules = data || [];
-      setPermittedModules(newPermittedModules);
-      const permittedPaths = new Set(newPermittedModules.map((m: ModuleDef) => m.path));
-      const currentFavoritesRaw = localStorage.getItem('moduleFavorites');
-      if (currentFavoritesRaw) {
-        const currentFavorites: string[] = JSON.parse(currentFavoritesRaw);
-        const validFavorites = currentFavorites.filter(favPath => permittedPaths.has(favPath));
-        if (validFavorites.length !== currentFavorites.length) {
-          localStorage.setItem('moduleFavorites', JSON.stringify(validFavorites));
-          window.dispatchEvent(new Event('storage'));
-          window.dispatchEvent(new CustomEvent('favorites-updated'));
-        }
-      }
+      setPermittedModules(data || []);
     } catch (error) {
-      console.error("Erro ao buscar módulos permitidos ou limpar favoritos:", error);
-      setPermittedModules([]);
+      console.error("Erro ao buscar módulos permitidos:", error);
     }
-  }, [supabase, user]);
+  }, [supabase, currentUser]);
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_all_users');
-      // CORREÇÃO: Lançar o erro original do Supabase para o bloco catch.
       if (error) throw error;
       setUsers(data || []);
-      setUsersError(null); // Limpa erros anteriores se a chamada for bem-sucedida
+      setUsersError(null);
     } catch (err: any) {
-      // Agora, a mensagem de erro será a mensagem real do Supabase.
       setUsersError(err.message);
     } finally {
       setUsersLoading(false);
@@ -283,6 +295,25 @@ export default function AdminPage() {
       fetchUsers();
     }
   }, [isAdmin, fetchPermittedModules, fetchUsers]);
+
+  // NOVA FUNÇÃO: Lógica para excluir um utilizador
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: deletingUser.id },
+      });
+      if (error) throw error;
+
+      showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
+      setDeletingUser(null);
+      fetchUsers(); // Atualiza a lista de utilizadores
+    } catch (error: any) {
+      console.error("Erro ao excluir utilizador:", error);
+      showToast(error.message || 'Falha ao excluir o utilizador.', 'error');
+    }
+  };
 
   if (adminLoading) {
     return <DashboardLayout modules={[]}><div className="p-4"><p>A verificar permissões...</p></div></DashboardLayout>;
@@ -319,7 +350,7 @@ export default function AdminPage() {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Cadastro</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -336,8 +367,10 @@ export default function AdminPage() {
                             {user.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
                           <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">Gerir</button>
+                          {/* NOVO BOTÃO DE EXCLUSÃO */}
+                          <button onClick={() => setDeletingUser(user)} className="text-red-600 hover:text-red-900">Excluir</button>
                         </td>
                       </tr>
                     ))}
@@ -361,6 +394,15 @@ export default function AdminPage() {
           user={managingUser} 
           onClose={() => setManagingUser(null)} 
           onPermissionsUpdate={fetchPermittedModules}
+        />
+      )}
+
+      {/* NOVO MODAL DE EXCLUSÃO */}
+      {deletingUser && (
+        <DeleteUserModal
+          user={deletingUser}
+          onClose={() => setDeletingUser(null)}
+          onConfirm={handleDeleteUser}
         />
       )}
     </ToastProvider>
