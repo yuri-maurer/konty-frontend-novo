@@ -153,7 +153,8 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
         <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
-          {loading ? <p className="text-center text-gray-500">A carregar...</p : (
+          {/* CORREÇÃO DO ERRO DE BUILD APLICADA AQUI */}
+          {loading ? <p className="text-center text-gray-500">A carregar...</p> : (
             <fieldset className="space-y-3">
               <legend className="sr-only">Módulos</legend>
               {modules.map(module => (
@@ -358,25 +359,10 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      // CORREÇÃO: Agora lemos a resposta da função para dar o feedback correto.
       const { data, error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
-
-      if (error) throw error; // Erro na chamada da função em si
-
-      // A nossa função melhorada sempre retorna um objeto 'data'.
-      // Verificamos se esse objeto contém uma chave de 'error'.
-      if (data.error) {
-        // Se sim, mostramos o erro que veio do Supabase
-        // Traduzimos a mensagem técnica para algo mais claro
-        if (data.error.includes("already been registered")) {
-          showToast("Este utilizador já está ativo e não pode ser convidado novamente.", 'error');
-        } else {
-          showToast(data.error, 'error');
-        }
-      } else {
-        // Se não, mostramos a mensagem de sucesso
-        showToast(data.message, 'success');
-      }
+      if (error) throw error;
+      if(data.error) throw new Error(data.error);
+      showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
     } catch (error: any) {
       showToast(error.message || 'Falha ao reenviar o convite.', 'error');
     } finally {
