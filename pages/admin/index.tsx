@@ -150,7 +150,8 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
+    // CORREÇÃO APLICADA AQUI
+    <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
         <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
@@ -187,7 +188,6 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      // CORRIGIDO: A chamada correta é `inviteUserByEmail`
       const { error } = await supabase.auth.admin.inviteUserByEmail(email);
       if (error) throw error;
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
@@ -202,7 +202,8 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
+    // CORREÇÃO APLICADA AQUI
+    <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
       <form onSubmit={handleInvite} className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Convidar Novo Utilizador</h3><p className="text-sm text-gray-600 mt-1">O utilizador receberá um email para definir a sua senha.</p></div>
         <div className="p-6">
