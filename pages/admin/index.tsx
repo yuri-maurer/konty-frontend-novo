@@ -150,7 +150,6 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   };
 
   return (
-    // CORREÇÃO APLICADA AQUI
     <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
@@ -173,13 +172,14 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   );
 };
 
-// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR (COM DESIGN MELHORADO) ---
+// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR (COM LÓGICA CORRIGIDA) ---
 const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUserInvited: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
   const [email, setEmail] = useState('');
   const [inviting, setInviting] = useState(false);
 
+  // CORREÇÃO: A lógica foi alterada para chamar a Edge Function 'invite-user'
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -188,13 +188,19 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      const { error } = await supabase.auth.admin.inviteUserByEmail(email);
+      // Em vez de chamar a função admin diretamente, invocamos a nossa função segura.
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: { email },
+      });
+
       if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
       onUserInvited();
       onClose();
     } catch (error: any) {
-      console.error("Erro ao convidar utilizador:", error);
+      console.error("Erro ao invocar a função de convite:", error);
       showToast(error.message || 'Falha ao enviar o convite.', 'error');
     } finally {
       setInviting(false);
@@ -202,7 +208,6 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   };
 
   return (
-    // CORREÇÃO APLICADA AQUI
     <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
       <form onSubmit={handleInvite} className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Convidar Novo Utilizador</h3><p className="text-sm text-gray-600 mt-1">O utilizador receberá um email para definir a sua senha.</p></div>
