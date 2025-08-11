@@ -3,7 +3,7 @@ import { useEffect, useState, createContext, useContext, useCallback } from 'rea
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { FiPlus } from 'react-icons/fi'; // Importado o ícone de 'mais'
+import { FiPlus, FiMail, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 
 // --- INTERFACES GLOBAIS PARA A PÁGINA ---
 interface AppUser {
@@ -35,8 +35,9 @@ const ToastProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
       {toast && (
         <div 
-          className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-lg text-white z-[100] transition-transform transform ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-lg text-white z-[100] transition-all flex items-center gap-3 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
         >
+          {toast.type === 'success' ? <FiCheckCircle className="h-5 w-5" /> : <FiXCircle className="h-5 w-5" />}
           {toast.message}
         </div>
       )}
@@ -90,7 +91,7 @@ const useAdminCheck = () => {
   return { isAdmin, loading };
 };
 
-// --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
+// --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES (COM DESIGN MELHORADO) ---
 const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: AppUser; onClose: () => void; onPermissionsUpdate: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -131,16 +132,12 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   const handleSaveChanges = async () => {
     setSaving(true);
     try {
-      const { error: deleteError } = await supabase.from('permissoes').delete().eq('user_id', user.id);
-      if (deleteError) throw deleteError;
-
+      await supabase.from('permissoes').delete().eq('user_id', user.id);
       const newPermsToInsert = Array.from(permissions).map(moduleKey => ({ user_id: user.id, modulo_nome: moduleKey, ativo: true }));
-
       if (newPermsToInsert.length > 0) {
         const { error: insertError } = await supabase.from('permissoes').insert(newPermsToInsert);
         if (insertError) throw insertError;
       }
-      
       showToast('Permissões atualizadas com sucesso!', 'success');
       onPermissionsUpdate(); 
       onClose();
@@ -153,19 +150,29 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6 border-b"><h3 className="text-lg font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium">{user.email}</span></p></div>
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {loading ? <p>A carregar...</p> : (<fieldset className="space-y-4"><legend className="sr-only">Módulos</legend>{modules.map(module => (<div key={module.key} className="relative flex items-start"><div className="flex items-center h-5"><input id={`module-${module.key}`} name={`module-${module.key}`} type="checkbox" checked={permissions.has(module.key)} onChange={() => handleTogglePermission(module.key)} className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded" /></div><div className="ml-3 text-sm"><label htmlFor={`module-${module.key}`} className="font-medium text-gray-700">{module.name}</label></div></div>))}</fieldset>)}
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
+        <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
+        <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
+          {loading ? <p className="text-center text-gray-500">A carregar...</p> : (
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Módulos</legend>
+              {modules.map(module => (
+                <label key={module.key} htmlFor={`module-${module.key}`} className="flex items-center justify-between p-4 rounded-lg bg-white border border-gray-200 hover:border-indigo-400 cursor-pointer transition-all has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500">
+                  <span className="font-medium text-gray-800">{module.name}</span>
+                  <input id={`module-${module.key}`} type="checkbox" checked={permissions.has(module.key)} onChange={() => handleTogglePermission(module.key)} className="h-5 w-5 rounded text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                </label>
+              ))}
+            </fieldset>
+          )}
         </div>
-        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end items-center gap-3"><button type="button" onClick={onClose} disabled={saving} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Cancelar</button><button type="button" onClick={handleSaveChanges} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:bg-indigo-400">{saving ? 'A salvar...' : 'Salvar Alterações'}</button></div>
+        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end items-center gap-3"><button type="button" onClick={onClose} disabled={saving} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50">Cancelar</button><button type="button" onClick={handleSaveChanges} disabled={saving} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:bg-indigo-400">{saving ? 'A salvar...' : 'Salvar Alterações'}</button></div>
       </div>
     </div>
   );
 };
 
-// NOVO: Componente para o Modal de Convidar Utilizador
+// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR (COM DESIGN MELHORADO) ---
 const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUserInvited: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -180,6 +187,7 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
+      // CORRIGIDO: A chamada correta é `inviteUserByEmail`
       const { error } = await supabase.auth.admin.inviteUserByEmail(email);
       if (error) throw error;
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
@@ -194,14 +202,17 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <form onSubmit={handleInvite} className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6 border-b"><h3 className="text-lg font-bold text-gray-900">Convidar Novo Utilizador</h3><p className="text-sm text-gray-600 mt-1">O utilizador receberá um email para definir a sua senha.</p></div>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
+      <form onSubmit={handleInvite} className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
+        <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Convidar Novo Utilizador</h3><p className="text-sm text-gray-600 mt-1">O utilizador receberá um email para definir a sua senha.</p></div>
         <div className="p-6">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email do Utilizador</label>
-          <div className="mt-1"><input type="email" name="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="nome@exemplo.com" required /></div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email do Utilizador</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FiMail className="h-5 w-5 text-gray-400" /></div>
+            <input type="email" name="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="nome@exemplo.com" required />
+          </div>
         </div>
-        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end items-center gap-3"><button type="button" onClick={onClose} disabled={inviting} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">Cancelar</button><button type="submit" disabled={inviting} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:bg-indigo-400">{inviting ? 'A enviar...' : 'Enviar Convite'}</button></div>
+        <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end items-center gap-3"><button type="button" onClick={onClose} disabled={inviting} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50">Cancelar</button><button type="submit" disabled={inviting} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:bg-indigo-400">{inviting ? 'A enviar...' : 'Enviar Convite'}</button></div>
       </form>
     </div>
   );
@@ -217,7 +228,7 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false); // Estado para o novo modal
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
 
@@ -278,7 +289,6 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-gray-900">Painel de Administração</h1>
           
           <div className="mt-8 bg-white border border-gray-200 rounded-xl shadow-sm">
-            {/* --- ATUALIZADO: CABEÇALHO DA SECÇÃO --- */}
             <div className="p-6 flex justify-between items-center border-b border-gray-200">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Gestão de Utilizadores</h2>
