@@ -153,7 +153,7 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
         <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
-          {loading ? <p className="text-center text-gray-500">A carregar...</p> : (
+          {loading ? <p className="text-center text-gray-500">A carregar...</p : (
             <fieldset className="space-y-3">
               <legend className="sr-only">Módulos</legend>
               {modules.map(module => (
