@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-// Adicionado FiShield para o novo ícone de admin
 import { FiHome, FiStar, FiPackage, FiChevronRight, FiShield } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 
@@ -31,20 +30,16 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
-  // --- ESTADO CORRIGIDO PARA A FUNÇÃO DO UTILIZADOR E CARREGAMENTO ---
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [roleLoading, setRoleLoading] = useState(true); // 1. Adicionado estado de loading
+  const [roleLoading, setRoleLoading] = useState(true);
 
-  // --- EFEITO CORRIGIDO PARA BUSCAR A FUNÇÃO (ROLE) DO UTILIZADOR ---
-  // Forçando um re-deploy com este comentário
   useEffect(() => {
     async function fetchUserRole() {
-      // Inicia o carregamento
       setRoleLoading(true);
       
       if (!user) {
         setUserRole(null);
-        setRoleLoading(false); // Se não há utilizador, terminamos o carregamento
+        setRoleLoading(false);
         return;
       }
 
@@ -64,7 +59,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
         console.error("Erro ao buscar a função do utilizador na sidebar:", error);
         setUserRole('user');
       } finally {
-        // 2. Finaliza o carregamento em qualquer cenário (sucesso ou erro)
         setRoleLoading(false); 
       }
     }
@@ -216,20 +210,24 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               <FiChevronRight />
             </button>
             
-            {/* --- LINK DE ADMINISTRAÇÃO CORRIGIDO (RENDERIZAÇÃO CONDICIONAL) --- */}
-            {/* 3. Apenas mostra o link se o carregamento terminou E o utilizador é admin */}
+            {/* --- ATUALIZADO: LINK DE ADMINISTRAÇÃO COM ESTILO CONSISTENTE --- */}
             {!roleLoading && userRole === 'admin' && (
-              <Link
-                href="/admin"
-                className={`flex items-center justify-between px-3 py-2 rounded-md transition group mt-4 border-t pt-4 ${
-                  router.pathname.startsWith('/admin') ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <FiShield className="group-hover:text-indigo-500" />
-                  Administração
-                </span>
-              </Link>
+              <>
+                <div className="pt-2">
+                  <div className="border-t border-gray-200 -mx-2"></div>
+                </div>
+                <Link
+                  href="/admin"
+                  className={`flex items-center justify-between px-3 py-2 rounded-md transition group ${
+                    router.pathname.startsWith('/admin') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <FiShield className="group-hover:text-blue-500" />
+                    Administração
+                  </span>
+                </Link>
+              </>
             )}
           </div>
 
