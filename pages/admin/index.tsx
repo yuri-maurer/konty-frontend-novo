@@ -358,10 +358,25 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
+      // CORREÇÃO: Agora lemos a resposta da função para dar o feedback correto.
       const { data, error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
-      if (error) throw error;
-      if(data.error) throw new Error(data.error);
-      showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
+
+      if (error) throw error; // Erro na chamada da função em si
+
+      // A nossa função melhorada sempre retorna um objeto 'data'.
+      // Verificamos se esse objeto contém uma chave de 'error'.
+      if (data.error) {
+        // Se sim, mostramos o erro que veio do Supabase
+        // Traduzimos a mensagem técnica para algo mais claro
+        if (data.error.includes("already been registered")) {
+          showToast("Este utilizador já está ativo e não pode ser convidado novamente.", 'error');
+        } else {
+          showToast(data.error, 'error');
+        }
+      } else {
+        // Se não, mostramos a mensagem de sucesso
+        showToast(data.message, 'success');
+      }
     } catch (error: any) {
       showToast(error.message || 'Falha ao reenviar o convite.', 'error');
     } finally {
