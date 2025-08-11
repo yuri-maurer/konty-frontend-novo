@@ -245,7 +245,7 @@ const DeleteUserModal = ({ user, onClose, onConfirm, loading }: { user: AppUser;
 };
 
 // --- NOVO COMPONENTE: MENU DE AÇÕES ---
-const ActionsDropdown = ({ user, onManage, onResend, onDelete }: { user: AppUser; onManage: () => void; onResend: () => void; onDelete: () => void; }) => {
+const ActionsDropdown = ({ user, onManage, onResend, onDelete, loading }: { user: AppUser; onManage: () => void; onResend: () => void; onDelete: () => void; loading: boolean; }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -266,7 +266,7 @@ const ActionsDropdown = ({ user, onManage, onResend, onDelete }: { user: AppUser
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+      <button onClick={() => setIsOpen(!isOpen)} disabled={loading} className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none disabled:opacity-50">
         Ações
         <FiMoreVertical className="-mr-1 ml-2 h-5 w-5" />
       </button>
@@ -342,8 +342,9 @@ function AdminConsole() {
     if (!deletingUser) return;
     setActionLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('delete-user', { body: { userId: deletingUser.id } });
+      const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId: deletingUser.id } });
       if (error) throw error;
+      if(data.error) throw new Error(data.error);
       showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
       setDeletingUser(null);
       fetchUsers();
@@ -357,8 +358,9 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
+      const { data, error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
       if (error) throw error;
+      if(data.error) throw new Error(data.error);
       showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
     } catch (error: any) {
       showToast(error.message || 'Falha ao reenviar o convite.', 'error');
@@ -409,6 +411,7 @@ function AdminConsole() {
                             onManage={() => setManagingUser(user)}
                             onResend={() => handleResendInvite(user)}
                             onDelete={() => setDeletingUser(user)}
+                            loading={actionLoading}
                           />
                         </td>
                       </tr>
