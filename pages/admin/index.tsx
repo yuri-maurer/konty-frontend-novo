@@ -208,7 +208,7 @@ export default function AdminPage() {
       setPermittedModules(newPermittedModules);
 
       // --- INÍCIO DA LÓGICA DE LIMPEZA DE FAVORITOS ---
-      const permittedPaths = new Set(newPermittedModules.map(m => m.path));
+      const permittedPaths = new Set(newPermittedModules.map((m: ModuleDef) => m.path));
       const currentFavoritesRaw = localStorage.getItem('moduleFavorites');
       if (currentFavoritesRaw) {
         const currentFavorites: string[] = JSON.parse(currentFavoritesRaw);
