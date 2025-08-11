@@ -3,7 +3,7 @@ import { useEffect, useState, createContext, useContext, useCallback } from 'rea
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { FiPlus, FiMail, FiCheckCircle, FiXCircle, FiAlertTriangle, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiMail, FiCheckCircle, FiXCircle, FiAlertTriangle, FiTrash2, FiSend } from 'react-icons/fi';
 
 // --- INTERFACES GLOBAIS PARA A PÁGINA ---
 interface AppUser {
@@ -219,7 +219,7 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   );
 };
 
-// --- NOVO COMPONENTE: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
+// --- COMPONENTE: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
 const DeleteUserModal = ({ user, onClose, onConfirm }: { user: AppUser; onClose: () => void; onConfirm: () => void; }) => {
   return (
     <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
@@ -258,8 +258,9 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
-  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null); // NOVO ESTADO
+  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false); // NOVO ESTADO para botões de ação
   
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
   const showToast = useToast();
@@ -296,22 +297,37 @@ export default function AdminPage() {
     }
   }, [isAdmin, fetchPermittedModules, fetchUsers]);
 
-  // NOVA FUNÇÃO: Lógica para excluir um utilizador
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
-
+    setActionLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: deletingUser.id },
-      });
+      const { error } = await supabase.functions.invoke('delete-user', { body: { userId: deletingUser.id } });
       if (error) throw error;
-
       showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
       setDeletingUser(null);
-      fetchUsers(); // Atualiza a lista de utilizadores
+      fetchUsers();
     } catch (error: any) {
       console.error("Erro ao excluir utilizador:", error);
       showToast(error.message || 'Falha ao excluir o utilizador.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // NOVA FUNÇÃO: Lógica para reenviar o convite
+  const handleResendInvite = async (userToResend: AppUser) => {
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('resend-invite', {
+        body: { email: userToResend.email },
+      });
+      if (error) throw error;
+      showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
+    } catch (error: any) {
+      console.error("Erro ao reenviar convite:", error);
+      showToast(error.message || 'Falha ao reenviar o convite.', 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -368,9 +384,13 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
-                          <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">Gerir</button>
-                          {/* NOVO BOTÃO DE EXCLUSÃO */}
-                          <button onClick={() => setDeletingUser(user)} className="text-red-600 hover:text-red-900">Excluir</button>
+                          {/* BOTÃO DE REENVIO CONDICIONAL */}
+                          {user.status === 'Convite enviado' ? (
+                            <button onClick={() => handleResendInvite(user)} disabled={actionLoading} className="text-blue-600 hover:text-blue-900 disabled:opacity-50">Reenviar</button>
+                          ) : (
+                            <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">Gerir</button>
+                          )}
+                          <button onClick={() => setDeletingUser(user)} disabled={actionLoading} className="text-red-600 hover:text-red-900 disabled:opacity-50">Excluir</button>
                         </td>
                       </tr>
                     ))}
@@ -397,7 +417,6 @@ export default function AdminPage() {
         />
       )}
 
-      {/* NOVO MODAL DE EXCLUSÃO */}
       {deletingUser && (
         <DeleteUserModal
           user={deletingUser}
