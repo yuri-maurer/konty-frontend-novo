@@ -1,5 +1,5 @@
 // pages/admin/index.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -18,6 +18,41 @@ interface ModuleDef {
   path: string;
 }
 
+// --- NOVO: SISTEMA DE NOTIFICAÇÕES (TOAST) ---
+// Contexto para fornecer a função de notificação para toda a aplicação.
+const ToastContext = createContext<(message: string, type?: 'success' | 'error') => void>(() => {});
+
+// Componente que renderiza a notificação (toast).
+const ToastProvider = ({ children }: { children: React.ReactNode }) => {
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    // A notificação desaparece após 5 segundos.
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <ToastContext.Provider value={showToast}>
+      {children}
+      {toast && (
+        <div 
+          className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-lg text-white z-[100] transition-transform transform ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </ToastContext.Provider>
+  );
+};
+
+// Hook para usar facilmente as notificações em qualquer componente.
+const useToast = () => useContext(ToastContext);
+
+
 // Hook personalizado para verificar a função do utilizador
 const useAdminCheck = () => {
   const router = useRouter();
@@ -29,14 +64,9 @@ const useAdminCheck = () => {
   useEffect(() => {
     async function checkRole() {
       if (!user) {
-        // Se não houver utilizador, espera um pouco para dar tempo ao Supabase de carregar
-        // e depois, se ainda não houver, redireciona para o login.
         const timer = setTimeout(() => {
-            if(!user) {
-                // Apenas redireciona se o utilizador ainda for nulo após o tempo de espera
-                if (!supabase.auth.getSession()) {
-                    router.push('/login');
-                }
+            if(!user && !supabase.auth.getSession()) {
+                router.push('/login');
             }
         }, 500);
         return () => clearTimeout(timer);
@@ -48,8 +78,6 @@ const useAdminCheck = () => {
           .eq('id', user.id)
           .single();
 
-        // CORREÇÃO: Trata o erro "PGRST116" (nenhuma linha encontrada) como um caso válido,
-        // em que o utilizador simplesmente não é admin, em vez de um erro que causa redirecionamento.
         if (error && error.code !== 'PGRST116') {
           throw error;
         }
@@ -57,7 +85,6 @@ const useAdminCheck = () => {
         if (data?.role === 'admin') {
           setIsAdmin(true);
         } else {
-          // Se não for admin, redireciona para o dashboard.
           router.push('/dashboard');
         }
 
@@ -78,6 +105,7 @@ const useAdminCheck = () => {
 // --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
 const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () => void; }) => {
   const supabase = useSupabaseClient();
+  const showToast = useToast(); // NOVO: Hook para mostrar notificações.
   const [modules, setModules] = useState<ModuleDef[]>([]);
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -86,7 +114,6 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   useEffect(() => {
     async function fetchData() {
       try {
-        // CORREÇÃO: Agora também seleciona o 'path' para corresponder à interface ModuleDef
         const { data: modulesData, error: modulesError } = await supabase
           .from('modulos')
           .select('key, name, path');
@@ -103,12 +130,13 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
 
       } catch (error) {
         console.error("Erro ao buscar dados para o modal:", error);
+        showToast('Não foi possível carregar os dados.', 'error');
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, [supabase, user.id]);
+  }, [supabase, user.id, showToast]);
 
   const handleTogglePermission = (moduleKey: string) => {
     setPermissions(prev => {
@@ -125,18 +153,22 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
   const handleSaveChanges = async () => {
     setSaving(true);
     try {
+      // Estratégia "delete-then-insert": simples e eficaz.
+      // 1. Apaga todas as permissões existentes para este utilizador.
       const { error: deleteError } = await supabase
         .from('permissoes')
         .delete()
         .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
+      // 2. Prepara as novas permissões para serem inseridas.
       const newPermsToInsert = Array.from(permissions).map(moduleKey => ({
         user_id: user.id,
         modulo_nome: moduleKey,
         ativo: true,
       }));
 
+      // 3. Insere as novas permissões, se houver alguma.
       if (newPermsToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from('permissoes')
@@ -144,12 +176,14 @@ const ManagePermissionsModal = ({ user, onClose }: { user: AppUser; onClose: () 
         if (insertError) throw insertError;
       }
       
-      alert('Permissões atualizadas com sucesso!');
+      // NOVO: Usa a notificação de sucesso em vez do alert().
+      showToast('Permissões atualizadas com sucesso!', 'success');
       onClose();
 
     } catch (error) {
       console.error("Erro ao salvar permissões:", error);
-      alert('Falha ao salvar as permissões. Tente novamente.');
+      // NOVO: Usa a notificação de erro em vez do alert().
+      showToast('Falha ao salvar as permissões.', 'error');
     } finally {
       setSaving(false);
     }
@@ -230,6 +264,7 @@ export default function AdminPage() {
     if (isAdmin) {
       async function fetchUsers() {
         try {
+          // Esta função RPC 'get_all_users' deve ser criada no Supabase para listar os utilizadores.
           const { data, error } = await supabase.rpc('get_all_users');
           if (error) throw new Error('Não foi possível carregar a lista de utilizadores.');
           setUsers(data || []);
@@ -243,7 +278,6 @@ export default function AdminPage() {
     }
   }, [isAdmin, supabase]);
 
-  // Mostra o ecrã de carregamento enquanto a verificação de admin está a decorrer.
   if (adminLoading) {
     return (
       <DashboardLayout modules={[]}>
@@ -254,13 +288,13 @@ export default function AdminPage() {
     );
   }
   
-  // Se, após o carregamento, o utilizador não for admin, não renderiza nada, pois o hook já o redirecionou.
   if (!isAdmin) {
       return null;
   }
 
   return (
-    <>
+    // NOVO: Envolvemos a página com o ToastProvider para que o sistema de notificações funcione.
+    <ToastProvider>
       <DashboardLayout modules={allModules.map(m => ({ name: m.name, path: m.path, icon: (() => null) as any }))}>
         <div className="p-4 sm:p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
@@ -269,7 +303,7 @@ export default function AdminPage() {
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <h2 className="text-lg font-semibold">Gestão de Utilizadores</h2>
             <p className="text-gray-600 mt-2 mb-6">
-              Visualize todos os utilizadores do sistema. O próximo passo será gerir as permissões de cada um.
+              Visualize todos os utilizadores do sistema e gira as suas permissões.
             </p>
             
             {usersLoading ? (
@@ -316,6 +350,6 @@ export default function AdminPage() {
           onClose={() => setManagingUser(null)} 
         />
       )}
-    </>
+    </ToastProvider>
   );
 }
