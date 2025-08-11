@@ -91,7 +91,6 @@ const useAdminCheck = () => {
 };
 
 // --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
-// ATUALIZADO: Aceita onPermissionsUpdate para notificar o pai sobre a atualização.
 const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: AppUser; onClose: () => void; onPermissionsUpdate: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -143,7 +142,7 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
       }
       
       showToast('Permissões atualizadas com sucesso!', 'success');
-      onPermissionsUpdate(); // ATUALIZADO: Chama a função de callback para atualizar a UI.
+      onPermissionsUpdate(); 
       onClose();
     } catch (error) {
       console.error("Erro ao salvar permissões:", error);
@@ -189,30 +188,48 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
 export default function AdminPage() {
   const { isAdmin, loading: adminLoading } = useAdminCheck();
   const supabase = useSupabaseClient();
-  const user = useUser(); // Hook para obter o utilizador logado.
+  const user = useUser();
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
   
-  // ATUALIZADO: Estado para os módulos permitidos do *utilizador logado* (para a sidebar).
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
 
-  // ATUALIZADO: Função para buscar os módulos permitidos do utilizador logado.
+  // ATUALIZADO: Função agora também limpa os favoritos inválidos.
   const fetchPermittedModules = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { p_user_id: user.id });
       if (error) throw error;
-      setPermittedModules(data || []);
+      
+      const newPermittedModules = data || [];
+      setPermittedModules(newPermittedModules);
+
+      // --- INÍCIO DA LÓGICA DE LIMPEZA DE FAVORITOS ---
+      const permittedPaths = new Set(newPermittedModules.map(m => m.path));
+      const currentFavoritesRaw = localStorage.getItem('moduleFavorites');
+      if (currentFavoritesRaw) {
+        const currentFavorites: string[] = JSON.parse(currentFavoritesRaw);
+        const validFavorites = currentFavorites.filter(favPath => permittedPaths.has(favPath));
+
+        // Se a lista de favoritos válidos for diferente da lista original, atualiza.
+        if (validFavorites.length !== currentFavorites.length) {
+          localStorage.setItem('moduleFavorites', JSON.stringify(validFavorites));
+          // Dispara um evento para notificar outras partes da aplicação (como a Sidebar)
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('favorites-updated'));
+        }
+      }
+      // --- FIM DA LÓGICA DE LIMPEZA DE FAVORITOS ---
+
     } catch (error) {
-      console.error("Erro ao buscar módulos permitidos para a sidebar:", error);
-      setPermittedModules([]); // Garante que a lista fica vazia em caso de erro.
+      console.error("Erro ao buscar módulos permitidos ou limpar favoritos:", error);
+      setPermittedModules([]);
     }
   }, [supabase, user]);
 
-  // Efeito para buscar os módulos permitidos quando a página carrega.
   useEffect(() => {
     if (isAdmin) {
       fetchPermittedModules();
@@ -244,7 +261,6 @@ export default function AdminPage() {
 
   return (
     <ToastProvider>
-      {/* ATUALIZADO: Passa os módulos permitidos para o layout, garantindo que a sidebar está sempre correta. */}
       <DashboardLayout modules={permittedModules.map(m => ({ name: m.name, path: m.path, icon: (() => null) as any }))}>
         <div className="p-4 sm:p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Painel de Administração</h1>
@@ -283,7 +299,6 @@ export default function AdminPage() {
         <ManagePermissionsModal 
           user={managingUser} 
           onClose={() => setManagingUser(null)} 
-          // ATUALIZADO: Passa a função de atualização para o modal.
           onPermissionsUpdate={fetchPermittedModules}
         />
       )}
