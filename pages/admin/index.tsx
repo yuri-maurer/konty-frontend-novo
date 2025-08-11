@@ -1,9 +1,9 @@
 // pages/admin/index.tsx
-import { useEffect, useState, createContext, useContext, useCallback } from 'react';
+import { useEffect, useState, createContext, useContext, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { FiPlus, FiMail, FiCheckCircle, FiXCircle, FiAlertTriangle, FiTrash2, FiSend } from 'react-icons/fi';
+import { FiPlus, FiMail, FiCheckCircle, FiXCircle, FiAlertTriangle, FiTrash2, FiMoreVertical, FiEdit, FiSend } from 'react-icons/fi';
 
 // --- INTERFACES GLOBAIS PARA A PÁGINA ---
 interface AppUser {
@@ -92,7 +92,7 @@ const useAdminCheck = () => {
   return { isAdmin, loading };
 };
 
-// --- COMPONENTE: MODAL DE GESTÃO DE PERMISSÕES ---
+// --- COMPONENTES DE MODAIS ---
 const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: AppUser; onClose: () => void; onPermissionsUpdate: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -112,7 +112,6 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
         if (permsError) throw permsError;
         setPermissions(new Set(permsData.map(p => p.modulo_nome)));
       } catch (error) {
-        console.error("Erro ao buscar dados para o modal:", error);
         showToast('Não foi possível carregar os dados.', 'error');
       } finally {
         setLoading(false);
@@ -143,7 +142,6 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
       onPermissionsUpdate(); 
       onClose();
     } catch (error) {
-      console.error("Erro ao salvar permissões:", error);
       showToast('Falha ao salvar as permissões.', 'error');
     } finally {
       setSaving(false);
@@ -173,7 +171,6 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
   );
 };
 
-// --- COMPONENTE: MODAL DE CONVIDAR UTILIZADOR ---
 const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUserInvited: () => void; }) => {
   const supabase = useSupabaseClient();
   const showToast = useToast();
@@ -195,7 +192,6 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
       onUserInvited();
       onClose();
     } catch (error: any) {
-      console.error("Erro ao invocar a função de convite:", error);
       showToast(error.message || 'Falha ao enviar o convite.', 'error');
     } finally {
       setInviting(false);
@@ -219,8 +215,7 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   );
 };
 
-// --- COMPONENTE: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
-const DeleteUserModal = ({ user, onClose, onConfirm }: { user: AppUser; onClose: () => void; onConfirm: () => void; }) => {
+const DeleteUserModal = ({ user, onClose, onConfirm, loading }: { user: AppUser; onClose: () => void; onConfirm: () => void; loading: boolean; }) => {
   return (
     <div className="fixed inset-0 bg-gray-900/75 z-50 flex justify-center items-center p-4 transition-opacity animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
@@ -237,11 +232,11 @@ const DeleteUserModal = ({ user, onClose, onConfirm }: { user: AppUser; onClose:
           </div>
         </div>
         <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-center items-center gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100">
+          <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50">
             Cancelar
           </button>
-          <button type="button" onClick={onConfirm} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700">
-            Sim, Excluir
+          <button type="button" onClick={onConfirm} disabled={loading} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50 disabled:bg-red-400">
+            {loading ? 'A excluir...' : 'Sim, Excluir'}
           </button>
         </div>
       </div>
@@ -249,10 +244,61 @@ const DeleteUserModal = ({ user, onClose, onConfirm }: { user: AppUser; onClose:
   );
 };
 
-export default function AdminPage() {
-  const { isAdmin, loading: adminLoading } = useAdminCheck();
+// --- NOVO COMPONENTE: MENU DE AÇÕES ---
+const ActionsDropdown = ({ user, onManage, onResend, onDelete }: { user: AppUser; onManage: () => void; onResend: () => void; onDelete: () => void; }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAction = (action: () => void) => {
+    action();
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <button onClick={() => setIsOpen(!isOpen)} className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+        Ações
+        <FiMoreVertical className="-mr-1 ml-2 h-5 w-5" />
+      </button>
+      {isOpen && (
+        <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+          <div className="py-1" role="menu" aria-orientation="vertical">
+            {user.status === 'Ativo' && (
+              <button onClick={() => handleAction(onManage)} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                <FiEdit className="h-4 w-4" /> Gerir permissões
+              </button>
+            )}
+            {user.status === 'Convite enviado' && (
+              <button onClick={() => handleAction(onResend)} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                <FiSend className="h-4 w-4" /> Reenviar convite
+              </button>
+            )}
+            <div className="border-t border-gray-100 my-1"></div>
+            <button onClick={() => handleAction(onDelete)} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">
+              <FiTrash2 className="h-4 w-4" /> Excluir
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- COMPONENTE PRINCIPAL DA PÁGINA (REFATORADO) ---
+function AdminConsole() {
   const supabase = useSupabaseClient();
   const currentUser = useUser();
+  const showToast = useToast();
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -260,10 +306,9 @@ export default function AdminPage() {
   const [managingUser, setManagingUser] = useState<AppUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false); // NOVO ESTADO para botões de ação
+  const [actionLoading, setActionLoading] = useState(false);
   
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
-  const showToast = useToast();
 
   const fetchPermittedModules = useCallback(async () => {
     if (!currentUser) return;
@@ -271,9 +316,7 @@ export default function AdminPage() {
       const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { p_user_id: currentUser.id });
       if (error) throw error;
       setPermittedModules(data || []);
-    } catch (error) {
-      console.error("Erro ao buscar módulos permitidos:", error);
-    }
+    } catch (error) { console.error("Erro ao buscar módulos permitidos:", error); }
   }, [supabase, currentUser]);
 
   const fetchUsers = useCallback(async () => {
@@ -291,11 +334,9 @@ export default function AdminPage() {
   }, [supabase]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchPermittedModules();
-      fetchUsers();
-    }
-  }, [isAdmin, fetchPermittedModules, fetchUsers]);
+    fetchPermittedModules();
+    fetchUsers();
+  }, [fetchPermittedModules, fetchUsers]);
 
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
@@ -307,57 +348,40 @@ export default function AdminPage() {
       setDeletingUser(null);
       fetchUsers();
     } catch (error: any) {
-      console.error("Erro ao excluir utilizador:", error);
       showToast(error.message || 'Falha ao excluir o utilizador.', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // NOVA FUNÇÃO: Lógica para reenviar o convite
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('resend-invite', {
-        body: { email: userToResend.email },
-      });
+      const { error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
       if (error) throw error;
       showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
     } catch (error: any) {
-      console.error("Erro ao reenviar convite:", error);
       showToast(error.message || 'Falha ao reenviar o convite.', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (adminLoading) {
-    return <DashboardLayout modules={[]}><div className="p-4"><p>A verificar permissões...</p></div></DashboardLayout>;
-  }
-  
-  if (!isAdmin) return null;
-
   return (
-    <ToastProvider>
+    <>
       <DashboardLayout modules={permittedModules.map(m => ({ name: m.name, path: m.path, icon: (() => null) as any }))}>
         <div className="p-4 sm:p-6 lg:p-8">
           <h1 className="text-2xl font-bold text-gray-900">Painel de Administração</h1>
-          
           <div className="mt-8 bg-white border border-gray-200 rounded-xl shadow-sm">
             <div className="p-6 flex justify-between items-center border-b border-gray-200">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Gestão de Utilizadores</h2>
                 <p className="text-sm text-gray-500 mt-1">Visualize, convide e gira as permissões dos utilizadores.</p>
               </div>
-              <button
-                onClick={() => setIsInviteModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <FiPlus className="h-4 w-4" />
-                Convidar Utilizador
+              <button onClick={() => setIsInviteModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <FiPlus className="h-4 w-4" /> Convidar Utilizador
               </button>
             </div>
-            
             {usersLoading ? <div className="p-6 text-gray-500">A carregar utilizadores...</div> : usersError ? <div className="p-6 text-red-600">{usersError}</div> : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -366,7 +390,7 @@ export default function AdminPage() {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Cadastro</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -375,22 +399,17 @@ export default function AdminPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.created_at).toLocaleDateString('pt-BR')}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.status === 'Ativo' ? 'bg-green-100 text-green-800' :
-                            user.status === 'Convite enviado' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                             {user.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">
-                          {/* BOTÃO DE REENVIO CONDICIONAL */}
-                          {user.status === 'Convite enviado' ? (
-                            <button onClick={() => handleResendInvite(user)} disabled={actionLoading} className="text-blue-600 hover:text-blue-900 disabled:opacity-50">Reenviar</button>
-                          ) : (
-                            <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">Gerir</button>
-                          )}
-                          <button onClick={() => setDeletingUser(user)} disabled={actionLoading} className="text-red-600 hover:text-red-900 disabled:opacity-50">Excluir</button>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <ActionsDropdown 
+                            user={user}
+                            onManage={() => setManagingUser(user)}
+                            onResend={() => handleResendInvite(user)}
+                            onDelete={() => setDeletingUser(user)}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -401,29 +420,26 @@ export default function AdminPage() {
           </div>
         </div>
       </DashboardLayout>
+      {isInviteModalOpen && <InviteUserModal onClose={() => setIsInviteModalOpen(false)} onUserInvited={fetchUsers} />}
+      {managingUser && <ManagePermissionsModal user={managingUser} onClose={() => setManagingUser(null)} onPermissionsUpdate={fetchPermittedModules} />}
+      {deletingUser && <DeleteUserModal user={deletingUser} onClose={() => setDeletingUser(null)} onConfirm={handleDeleteUser} loading={actionLoading} />}
+    </>
+  );
+}
 
-      {isInviteModalOpen && (
-        <InviteUserModal 
-          onClose={() => setIsInviteModalOpen(false)} 
-          onUserInvited={fetchUsers}
-        />
-      )}
+export default function AdminPage() {
+  const { isAdmin, loading: adminLoading } = useAdminCheck();
 
-      {managingUser && (
-        <ManagePermissionsModal 
-          user={managingUser} 
-          onClose={() => setManagingUser(null)} 
-          onPermissionsUpdate={fetchPermittedModules}
-        />
-      )}
+  if (adminLoading) {
+    return <DashboardLayout modules={[]}><div className="p-4"><p>A verificar permissões...</p></div></DashboardLayout>;
+  }
+  
+  if (!isAdmin) return null;
 
-      {deletingUser && (
-        <DeleteUserModal
-          user={deletingUser}
-          onClose={() => setDeletingUser(null)}
-          onConfirm={handleDeleteUser}
-        />
-      )}
+  // O ToastProvider agora envolve o componente principal que usa o hook
+  return (
+    <ToastProvider>
+      <AdminConsole />
     </ToastProvider>
   );
 }
