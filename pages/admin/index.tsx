@@ -10,7 +10,7 @@ interface AppUser {
   id: string;
   email: string;
   created_at: string;
-  status: string; // 1. ATUALIZADO: Adicionamos o campo status
+  status: string;
 }
 
 interface ModuleDef {
@@ -265,9 +265,12 @@ export default function AdminPage() {
     setUsersLoading(true);
     try {
       const { data, error } = await supabase.rpc('get_all_users');
-      if (error) throw new Error('Não foi possível carregar a lista de utilizadores.');
+      // CORREÇÃO: Lançar o erro original do Supabase para o bloco catch.
+      if (error) throw error;
       setUsers(data || []);
+      setUsersError(null); // Limpa erros anteriores se a chamada for bem-sucedida
     } catch (err: any) {
+      // Agora, a mensagem de erro será a mensagem real do Supabase.
       setUsersError(err.message);
     } finally {
       setUsersLoading(false);
@@ -315,7 +318,6 @@ export default function AdminPage() {
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Cadastro</th>
-                      {/* 2. ATUALIZADO: Adicionamos o cabeçalho da coluna Status */}
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
                     </tr>
@@ -325,7 +327,6 @@ export default function AdminPage() {
                       <tr key={user.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.created_at).toLocaleDateString('pt-BR')}</td>
-                        {/* 3. ATUALIZADO: Adicionamos a célula que exibe o Status com estilo */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             user.status === 'Ativo' ? 'bg-green-100 text-green-800' :
