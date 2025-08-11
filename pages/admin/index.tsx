@@ -10,6 +10,7 @@ interface AppUser {
   id: string;
   email: string;
   created_at: string;
+  status: string; // 1. ATUALIZADO: Adicionamos o campo status
 }
 
 interface ModuleDef {
@@ -179,7 +180,6 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
   const [email, setEmail] = useState('');
   const [inviting, setInviting] = useState(false);
 
-  // CORREÇÃO: A lógica foi alterada para chamar a Edge Function 'invite-user'
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -188,7 +188,6 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      // Em vez de chamar a função admin diretamente, invocamos a nossa função segura.
       const { data, error } = await supabase.functions.invoke('invite-user', {
         body: { email },
       });
@@ -316,6 +315,8 @@ export default function AdminPage() {
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Cadastro</th>
+                      {/* 2. ATUALIZADO: Adicionamos o cabeçalho da coluna Status */}
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
                     </tr>
                   </thead>
@@ -324,6 +325,16 @@ export default function AdminPage() {
                       <tr key={user.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(user.created_at).toLocaleDateString('pt-BR')}</td>
+                        {/* 3. ATUALIZADO: Adicionamos a célula que exibe o Status com estilo */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            user.status === 'Ativo' ? 'bg-green-100 text-green-800' :
+                            user.status === 'Convite enviado' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {user.status}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button onClick={() => setManagingUser(user)} className="text-indigo-600 hover:text-indigo-900">Gerir</button>
                         </td>
