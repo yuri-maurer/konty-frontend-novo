@@ -35,7 +35,7 @@ const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     <ToastContext.Provider value={showToast}>
       {children}
       {toast && (
-        <div 
+        <div
           className={`fixed bottom-5 right-5 p-4 rounded-lg shadow-lg text-white z-[100] transition-all flex items-center gap-3 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
         >
           {toast.type === 'success' ? <FiCheckCircle className="h-5 w-5" /> : <FiXCircle className="h-5 w-5" />}
@@ -139,7 +139,7 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
         if (insertError) throw insertError;
       }
       showToast('Permissões atualizadas com sucesso!', 'success');
-      onPermissionsUpdate(); 
+      onPermissionsUpdate();
       onClose();
     } catch (error) {
       showToast('Falha ao salvar as permissões.', 'error');
@@ -185,15 +185,19 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      // CORRIGIDO: Usar a função nativa do Supabase em vez de uma Edge Function.
-      const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: 'https://www.konty.com.br/login',
+      // ALTERAÇÃO PRINCIPAL: Chamamos a Edge Function 'invite-user'
+      // Em vez de chamar supabase.auth.admin, usamos supabase.functions.invoke()
+      const { error } = await supabase.functions.invoke('invite-user', {
+        body: { email }, // Passamos o email no corpo da requisição
       });
-      if (error) throw error;
+
+      if (error) throw error; // Se a função retornar um erro, ele será lançado aqui
+
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
-      onUserInvited();
-      onClose();
+      onUserInvited(); // Atualiza a lista de utilizadores na tela
+      onClose(); // Fecha o modal
     } catch (error: any) {
+      // A mensagem de erro agora vem da nossa Edge Function
       showToast(error.message || 'Falha ao enviar o convite.', 'error');
     } finally {
       setInviting(false);
@@ -309,7 +313,7 @@ function AdminConsole() {
   const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   const [permittedModules, setPermittedModules] = useState<ModuleDef[]>([]);
 
   const fetchPermittedModules = useCallback(async () => {
@@ -410,7 +414,7 @@ function AdminConsole() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <ActionsDropdown 
+                          <ActionsDropdown
                             user={user}
                             onManage={() => setManagingUser(user)}
                             onResend={() => handleResendInvite(user)}
@@ -440,7 +444,7 @@ export default function AdminPage() {
   if (adminLoading) {
     return <DashboardLayout modules={[]}><div className="p-4"><p>A verificar permissões...</p></div></DashboardLayout>;
   }
-  
+
   if (!isAdmin) return null;
 
   // O ToastProvider agora envolve o componente principal que usa o hook
