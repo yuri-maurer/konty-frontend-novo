@@ -185,6 +185,7 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
+      // CORRIGIDO: Usar a função nativa do Supabase em vez de uma Edge Function.
       const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
         redirectTo: 'https://www.konty.com.br/login',
       });
@@ -343,6 +344,7 @@ function AdminConsole() {
     if (!deletingUser) return;
     setActionLoading(true);
     try {
+      // CORRIGIDO: Usar a função nativa do Supabase.
       const { error } = await supabase.auth.admin.deleteUser(deletingUser.id);
       if (error) throw error;
       showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
@@ -358,7 +360,7 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      // CORRIGIDO: Usar o método padrão e mais fiável do Supabase.
+      // CORRIGIDO: Usar o método padrão e mais fiável do Supabase para enviar um link de ativação.
       const { error } = await supabase.auth.resetPasswordForEmail(userToResend.email, {
         redirectTo: 'https://www.konty.com.br/login',
       });
