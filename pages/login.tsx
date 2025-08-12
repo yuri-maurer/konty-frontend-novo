@@ -163,41 +163,41 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA CORRIGIDA) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
-  const [isLoading, setIsLoading] = useState(true); // Usado para evitar "piscar" de ecrã
+  const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabaseClient();
   const user = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // A forma mais fiável de detetar um convite é verificar o URL assim que a página carrega.
-    // O Supabase anexa #access_token=... e type=recovery ao URL.
-    if (window.location.hash.includes('access_token') && window.location.hash.includes('type=recovery')) {
-      setView('update_password');
-    }
-    setIsLoading(false); // A verificação inicial foi feita, podemos mostrar o conteúdo.
-
-    // O listener é uma segurança secundária e para outros eventos de autenticação.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    // O listener de autenticação é a nossa fonte de verdade.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Este evento é disparado quando o utilizador segue um link de convite ou de reset de senha.
+      // É o sinal para mostrar o formulário de atualização de senha.
       if (event === 'PASSWORD_RECOVERY') {
         setView('update_password');
       }
     });
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [supabase]); // Executar apenas uma vez na montagem do componente.
-
-  useEffect(() => {
-    // Este segundo useEffect lida apenas com o redirecionamento.
-    // A CONDIÇÃO CORRIGIDA: Só redireciona se o utilizador existir E NÃO estiver no fluxo de atualização de senha.
-    if (user && view !== 'update_password') {
+    // Verificamos o estado inicial. Se o utilizador já tem uma sessão
+    // E NÃO está no meio de um fluxo de recuperação (verificado pelo URL),
+    // então podemos redirecioná-lo em segurança.
+    const isRecoveryFlow = window.location.hash.includes('type=recovery');
+    if (user && !isRecoveryFlow) {
       router.push('/dashboard');
     }
-  }, [user, view, router]); // Reage a mudanças no 'user' e na 'view'.
+
+    // Se não houver utilizador ou se for um fluxo de recuperação, paramos o loading
+    // e deixamos o listener e a interação do utilizador guiarem o fluxo.
+    setIsLoading(false);
+
+    // Limpamos a subscrição quando o componente é desmontado.
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, router, supabase]);
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
