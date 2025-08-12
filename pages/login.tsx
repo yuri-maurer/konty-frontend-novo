@@ -5,6 +5,7 @@ import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiLogIn, FiKey } from 'react-icons/fi';
 
 // --- Componente para o formulário de definir/resetar a senha ---
+// Nenhuma alteração necessária aqui, o seu componente está perfeito.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -34,7 +35,7 @@ const UpdatePasswordForm = () => {
       setSuccess('Senha atualizada com sucesso! A redirecionar para o dashboard...');
       setTimeout(() => {
         router.push('/dashboard');
-      }, 3000);
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Não foi possível atualizar a senha.');
     } finally {
@@ -92,6 +93,7 @@ const UpdatePasswordForm = () => {
 
 
 // --- Componente para o formulário de Login normal ---
+// Nenhuma alteração necessária aqui também.
 const LoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -169,30 +171,33 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Se o utilizador já estiver logado, redireciona imediatamente para o dashboard.
     if (user) {
       router.push('/dashboard');
+      return; // Interrompe a execução do hook para evitar verificações desnecessárias.
     }
-  }, [user, router]);
 
-  useEffect(() => {
-    // CORRIGIDO: Lógica mais robusta que verifica o URL imediatamente.
-    // O Supabase usa o evento 'PASSWORD_RECOVERY' tanto para convites como para reset de senha.
-    // A presença do token no URL é o sinal mais fiável.
+    // A forma mais fiável de detetar um convite é verificar o URL.
+    // O Supabase anexa #access_token=... ao URL quando o utilizador clica no link do email.
+    // Esta verificação é feita apenas uma vez, quando a página carrega.
     if (window.location.hash.includes('access_token')) {
         setView('update_password');
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Mantemos o listener como uma segurança secundária, mas o principal é a verificação do URL.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setView('update_password');
       }
     });
 
+    // Limpa a subscrição quando o componente é desmontado para evitar leaks de memória.
     return () => {
       subscription?.unsubscribe();
     };
-  }, [supabase]);
+  }, [user, router, supabase]);
 
+  // Se o user ainda está a ser carregado, mostramos uma tela de loading.
   if (user) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A redirecionar...</div>;
   }
