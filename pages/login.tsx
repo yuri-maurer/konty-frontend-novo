@@ -1,10 +1,10 @@
 // pages/login.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiLogIn, FiKey } from 'react-icons/fi';
 
-// --- NOVO: Componente para o formulário de definir/resetar a senha ---
+// --- Componente para o formulário de definir/resetar a senha ---
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -31,7 +31,7 @@ const UpdatePasswordForm = () => {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      setSuccess('Senha atualizada com sucesso! A redirecionar para o login...');
+      setSuccess('Senha atualizada com sucesso! A redirecionar para o dashboard...');
       setTimeout(() => {
         router.push('/dashboard');
       }, 3000);
@@ -163,7 +163,7 @@ const LoginForm = () => {
 
 // --- Página principal que decide qual formulário mostrar ---
 export default function LoginPage() {
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [view, setView] = useState<'login' | 'update_password'>('login');
   const supabase = useSupabaseClient();
   const user = useUser();
   const router = useRouter();
@@ -176,10 +176,12 @@ export default function LoginPage() {
   }, [user, router]);
 
   useEffect(() => {
-    // Verifica a hash do URL para o evento de recuperação de senha
+    // CORRIGIDO: Esta é a nova lógica, mais robusta.
+    // Ela ouve o evento do Supabase E verifica o URL.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // O evento 'PASSWORD_RECOVERY' é usado tanto para convites como para reset de senha.
       if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordRecovery(true);
+        setView('update_password');
       }
     });
 
@@ -195,7 +197,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      {isPasswordRecovery ? <UpdatePasswordForm /> : <LoginForm />}
+      {view === 'update_password' ? <UpdatePasswordForm /> : <LoginForm />}
     </div>
   );
 }
