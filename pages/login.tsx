@@ -36,7 +36,7 @@ const UpdatePasswordForm = () => {
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: any)      {
       setError(err.message || 'Não foi possível atualizar a senha.');
     } finally {
       setLoading(false);
@@ -166,40 +166,41 @@ const LoginForm = () => {
 // --- Página principal que decide qual formulário mostrar ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
+  const [isLoading, setIsLoading] = useState(true); // Usado para evitar "piscar" de ecrã
   const supabase = useSupabaseClient();
   const user = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // Se o utilizador já estiver logado, redireciona imediatamente para o dashboard.
-    if (user) {
-      router.push('/dashboard');
-      return; // Interrompe a execução do hook para evitar verificações desnecessárias.
+    // A forma mais fiável de detetar um convite é verificar o URL assim que a página carrega.
+    // O Supabase anexa #access_token=... e type=recovery ao URL.
+    if (window.location.hash.includes('access_token') && window.location.hash.includes('type=recovery')) {
+      setView('update_password');
     }
+    setIsLoading(false); // A verificação inicial foi feita, podemos mostrar o conteúdo.
 
-    // A forma mais fiável de detetar um convite é verificar o URL.
-    // O Supabase anexa #access_token=... ao URL quando o utilizador clica no link do email.
-    // Esta verificação é feita apenas uma vez, quando a página carrega.
-    if (window.location.hash.includes('access_token')) {
-        setView('update_password');
-    }
-
-    // Mantemos o listener como uma segurança secundária, mas o principal é a verificação do URL.
+    // O listener é uma segurança secundária e para outros eventos de autenticação.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setView('update_password');
       }
     });
 
-    // Limpa a subscrição quando o componente é desmontado para evitar leaks de memória.
     return () => {
       subscription?.unsubscribe();
     };
-  }, [user, router, supabase]);
+  }, [supabase]); // Executar apenas uma vez na montagem do componente.
 
-  // Se o user ainda está a ser carregado, mostramos uma tela de loading.
-  if (user) {
-    return <div className="flex h-screen items-center justify-center bg-gray-100">A redirecionar...</div>;
+  useEffect(() => {
+    // Este segundo useEffect lida apenas com o redirecionamento.
+    // A CONDIÇÃO CORRIGIDA: Só redireciona se o utilizador existir E NÃO estiver no fluxo de atualização de senha.
+    if (user && view !== 'update_password') {
+      router.push('/dashboard');
+    }
+  }, [user, view, router]); // Reage a mudanças no 'user' e na 'view'.
+
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
   }
 
   return (
