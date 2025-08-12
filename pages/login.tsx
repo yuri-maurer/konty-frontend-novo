@@ -169,17 +169,20 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Se o utilizador já está logado, vai para o dashboard
     if (user) {
       router.push('/dashboard');
     }
   }, [user, router]);
 
   useEffect(() => {
-    // CORRIGIDO: Esta é a nova lógica, mais robusta.
-    // Ela ouve o evento do Supabase E verifica o URL.
+    // CORRIGIDO: Lógica mais robusta que verifica o URL imediatamente.
+    // O Supabase usa o evento 'PASSWORD_RECOVERY' tanto para convites como para reset de senha.
+    // A presença do token no URL é o sinal mais fiável.
+    if (window.location.hash.includes('access_token')) {
+        setView('update_password');
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // O evento 'PASSWORD_RECOVERY' é usado tanto para convites como para reset de senha.
       if (event === 'PASSWORD_RECOVERY') {
         setView('update_password');
       }
@@ -190,7 +193,6 @@ export default function LoginPage() {
     };
   }, [supabase]);
 
-  // Se já sabemos que o utilizador está logado, mostramos um loading
   if (user) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A redirecionar...</div>;
   }
