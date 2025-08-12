@@ -110,7 +110,7 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
 
         const { data: permsData, error: permsError } = await supabase.from('permissoes').select('modulo_nome').eq('user_id', user.id).eq('ativo', true);
         if (permsError) throw permsError;
-        setPermissions(new Set(permsData.map(p => p.modulo_nome)));
+        setPermissions(new Set(permsData.map((p: any) => p.modulo_nome)));
       } catch (error) {
         showToast('Não foi possível carregar os dados.', 'error');
       } finally {
@@ -153,7 +153,6 @@ const ManagePermissionsModal = ({ user, onClose, onPermissionsUpdate }: { user: 
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-slide-up">
         <div className="p-6 border-b"><h3 className="text-xl font-bold text-gray-900">Gerir Permissões</h3><p className="text-sm text-gray-600 mt-1">Utilizador: <span className="font-medium text-indigo-600">{user.email}</span></p></div>
         <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50/50">
-          {/* CORREÇÃO DO ERRO DE BUILD APLICADA AQUI */}
           {loading ? <p className="text-center text-gray-500">A carregar...</p> : (
             <fieldset className="space-y-3">
               <legend className="sr-only">Módulos</legend>
@@ -186,9 +185,10 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('invite-user', { body: { email } });
+      const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: 'https://www.konty.com.br/login',
+      });
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
       onUserInvited();
       onClose();
@@ -245,7 +245,7 @@ const DeleteUserModal = ({ user, onClose, onConfirm, loading }: { user: AppUser;
   );
 };
 
-// --- NOVO COMPONENTE: MENU DE AÇÕES ---
+// --- COMPONENTE: MENU DE AÇÕES ---
 const ActionsDropdown = ({ user, onManage, onResend, onDelete, loading }: { user: AppUser; onManage: () => void; onResend: () => void; onDelete: () => void; loading: boolean; }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -343,9 +343,8 @@ function AdminConsole() {
     if (!deletingUser) return;
     setActionLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId: deletingUser.id } });
+      const { error } = await supabase.auth.admin.deleteUser(deletingUser.id);
       if (error) throw error;
-      if(data.error) throw new Error(data.error);
       showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
       setDeletingUser(null);
       fetchUsers();
@@ -359,12 +358,14 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('resend-invite', { body: { email: userToResend.email } });
+      // CORRIGIDO: Usar o método padrão e mais fiável do Supabase.
+      const { error } = await supabase.auth.resetPasswordForEmail(userToResend.email, {
+        redirectTo: 'https://www.konty.com.br/login',
+      });
       if (error) throw error;
-      if(data.error) throw new Error(data.error);
-      showToast(`Convite reenviado para ${userToResend.email}.`, 'success');
+      showToast(`Link de ativação reenviado para ${userToResend.email}.`, 'success');
     } catch (error: any) {
-      showToast(error.message || 'Falha ao reenviar o convite.', 'error');
+      showToast(error.message || 'Falha ao reenviar o link.', 'error');
     } finally {
       setActionLoading(false);
     }
