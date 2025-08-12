@@ -163,7 +163,7 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA DE INVESTIGAÇÃO) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA SIMPLIFICADA E FINAL) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -172,52 +172,36 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // LOG DE INVESTIGAÇÃO 1: Verificar o hash do URL no momento exato da montagem do componente.
-    console.log('LoginPage montado. Hash do URL:', window.location.hash);
-
-    // Se o hash já estiver presente, podemos tentar definir a view imediatamente.
-    if (window.location.hash.includes('type=recovery')) {
-      console.log('Hash de recuperação encontrado. A definir view para "update_password".');
-      setView('update_password');
-    }
-
-    // O listener de autenticação é a nossa fonte de verdade mais confiável.
+    // A única fonte de verdade será o listener do Supabase.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // LOG DE INVESTIGAÇÃO 2: Ver o evento exato que o Supabase está a emitir.
-      console.log('Evento onAuthStateChange disparado:', event);
-
-      // Esta é a condição principal para mostrar o formulário de atualização de senha.
+      // Se o evento for PASSWORD_RECOVERY, significa que o utilizador
+      // veio de um link de convite ou de reset de senha.
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('Evento PASSWORD_RECOVERY detetado. A forçar view para "update_password".');
         setView('update_password');
-      } else if (event === 'SIGNED_IN' && session) {
-        // Se o utilizador fez login com sucesso, redireciona para o dashboard.
-        console.log('Evento SIGNED_IN detetado. A redirecionar para /dashboard.');
-        router.push('/dashboard');
       }
     });
 
-    // Se o utilizador já estiver logado ao carregar a página (e não for um fluxo de recuperação), redireciona.
-    if (user && !window.location.hash.includes('type=recovery')) {
-      console.log('Utilizador já logado. A redirecionar para /dashboard.');
+    // Se, ao carregar a página, o utilizador já estiver logado,
+    // nós o redirecionamos para o dashboard.
+    if (user) {
       router.push('/dashboard');
     }
 
+    // Independentemente do resultado, paramos o loading.
     setIsLoading(false);
 
-    // Limpamos a subscrição quando o componente é desmontado para evitar leaks de memória.
+    // Limpamos a subscrição quando o componente for desmontado.
     return () => {
-      console.log('LoginPage desmontado. A limpar subscrição.');
       subscription.unsubscribe();
     };
   }, [user, router, supabase]);
 
+  // Enquanto a verificação inicial acontece, mostramos uma mensagem.
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
   }
 
-  // LOG DE INVESTIGAÇÃO 3: Ver qual view está a ser renderizada.
-  console.log('A renderizar LoginPage com a view:', view);
+  // Renderiza o formulário correto com base no estado 'view'.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       {view === 'update_password' ? <UpdatePasswordForm /> : <LoginForm />}
