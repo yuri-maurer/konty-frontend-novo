@@ -185,19 +185,16 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
     }
     setInviting(true);
     try {
-      // ALTERAÇÃO PRINCIPAL: Chamamos a Edge Function 'invite-user'
-      // Em vez de chamar supabase.auth.admin, usamos supabase.functions.invoke()
       const { error } = await supabase.functions.invoke('invite-user', {
-        body: { email }, // Passamos o email no corpo da requisição
+        body: { email },
       });
 
-      if (error) throw error; // Se a função retornar um erro, ele será lançado aqui
+      if (error) throw error;
 
       showToast(`Convite enviado para ${email} com sucesso!`, 'success');
-      onUserInvited(); // Atualiza a lista de utilizadores na tela
-      onClose(); // Fecha o modal
+      onUserInvited();
+      onClose();
     } catch (error: any) {
-      // A mensagem de erro agora vem da nossa Edge Function
       showToast(error.message || 'Falha ao enviar o convite.', 'error');
     } finally {
       setInviting(false);
@@ -300,7 +297,7 @@ const ActionsDropdown = ({ user, onManage, onResend, onDelete, loading }: { user
   );
 };
 
-// --- COMPONENTE PRINCIPAL DA PÁGINA (REFATORADO) ---
+// --- COMPONENTE PRINCIPAL DA PÁGINA (COM TODAS AS CORREÇÕES) ---
 function AdminConsole() {
   const supabase = useSupabaseClient();
   const currentUser = useUser();
@@ -348,9 +345,12 @@ function AdminConsole() {
     if (!deletingUser) return;
     setActionLoading(true);
     try {
-      // CORRIGIDO: Usar a função nativa do Supabase.
-      const { error } = await supabase.auth.admin.deleteUser(deletingUser.id);
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: deletingUser.id },
+      });
+
       if (error) throw error;
+
       showToast(`Utilizador ${deletingUser.email} excluído com sucesso.`, 'success');
       setDeletingUser(null);
       fetchUsers();
@@ -358,16 +358,18 @@ function AdminConsole() {
       showToast(error.message || 'Falha ao excluir o utilizador.', 'error');
     } finally {
       setActionLoading(false);
+      setDeletingUser(null);
     }
   };
 
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      // CORRIGIDO: Usar o método padrão e mais fiável do Supabase para enviar um link de ativação.
-      const { error } = await supabase.auth.resetPasswordForEmail(userToResend.email, {
-        redirectTo: 'https://www.konty.com.br/login',
+      // AJUSTE FINAL: Padronizando a chamada para usar a Edge Function 'resend-invite'
+      const { error } = await supabase.functions.invoke('resend-invite', {
+        body: { email: userToResend.email },
       });
+
       if (error) throw error;
       showToast(`Link de ativação reenviado para ${userToResend.email}.`, 'success');
     } catch (error: any) {
@@ -447,7 +449,6 @@ export default function AdminPage() {
 
   if (!isAdmin) return null;
 
-  // O ToastProvider agora envolve o componente principal que usa o hook
   return (
     <ToastProvider>
       <AdminConsole />
