@@ -163,7 +163,7 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA ASSERTIVA E FINAL) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -172,32 +172,37 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // A fonte de verdade mais rápida e fiável é o URL.
-    // Verificamos o hash do URL assim que o componente é montado.
+    // Primeiro, determinamos se estamos num fluxo de convite/recuperação pelo URL.
     const hash = window.location.hash;
-    if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+    const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
+
+    // Se for um fluxo de convite E o `user` (da sessão temporária) já estiver disponível,
+    // podemos mostrar o formulário de atualização de senha com segurança.
+    if (isInviteOrRecoveryFlow && user) {
       setView('update_password');
     }
 
-    // O listener continua a ser útil para redirecionar o utilizador após o login.
+    // O listener de autenticação lida com o login bem-sucedido (após definir a senha ou login normal).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        // Após definir a senha ou fazer login, o utilizador é redirecionado.
         router.push('/dashboard');
       }
     });
 
-    // Se o utilizador já tem uma sessão válida e não está num fluxo de convite/recuperação, redireciona.
-    if (user && !hash.includes('type=invite') && !hash.includes('type=recovery')) {
+    // Se o utilizador já tem uma sessão normal (não de convite), redireciona imediatamente.
+    if (user && !isInviteOrRecoveryFlow) {
       router.push('/dashboard');
     }
 
+    // A página só para de carregar depois de todas as verificações.
     setIsLoading(false);
 
     // Limpamos a subscrição quando o componente é desmontado.
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, router, supabase]);
+  }, [user, router, supabase]); // O `user` é uma dependência chave aqui.
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
