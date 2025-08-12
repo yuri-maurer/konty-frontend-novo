@@ -163,7 +163,7 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA SIMPLIFICADA E FINAL) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA ASSERTIVA E FINAL) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -172,31 +172,33 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // A única fonte de verdade será o listener do Supabase.
+    // A fonte de verdade mais rápida e fiável é o URL.
+    // Verificamos o hash do URL assim que o componente é montado.
+    const hash = window.location.hash;
+    if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+      setView('update_password');
+    }
+
+    // O listener continua a ser útil para redirecionar o utilizador após o login.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Se o evento for PASSWORD_RECOVERY, significa que o utilizador
-      // veio de um link de convite ou de reset de senha.
-      if (event === 'PASSWORD_RECOVERY') {
-        setView('update_password');
+      if (event === 'SIGNED_IN' && session) {
+        router.push('/dashboard');
       }
     });
 
-    // Se, ao carregar a página, o utilizador já estiver logado,
-    // nós o redirecionamos para o dashboard.
-    if (user) {
+    // Se o utilizador já tem uma sessão válida e não está num fluxo de convite/recuperação, redireciona.
+    if (user && !hash.includes('type=invite') && !hash.includes('type=recovery')) {
       router.push('/dashboard');
     }
 
-    // Independentemente do resultado, paramos o loading.
     setIsLoading(false);
 
-    // Limpamos a subscrição quando o componente for desmontado.
+    // Limpamos a subscrição quando o componente é desmontado.
     return () => {
       subscription.unsubscribe();
     };
   }, [user, router, supabase]);
 
-  // Enquanto a verificação inicial acontece, mostramos uma mensagem.
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
   }
