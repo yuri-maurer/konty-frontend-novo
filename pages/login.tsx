@@ -72,7 +72,7 @@ const UpdatePasswordForm = () => {
               required
             />
             {/* MELHORIA 2: Botão para visualizar a senha */}
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </button>
           </div>
@@ -93,7 +93,7 @@ const UpdatePasswordForm = () => {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
-            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
+            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">
               {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
             </button>
           </div>
@@ -195,26 +195,22 @@ export default function LoginPage() {
     const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
 
     // LÓGICA DE PRIORIDADE PARA RESOLVER A RACE CONDITION:
-    // 1. Se for um fluxo de convite/recuperação, esperamos que o `user` (sessão temporária) seja carregado.
+    // 1. Se for um fluxo de convite/recuperação...
     if (isInviteOrRecoveryFlow) {
+      // ...e a sessão temporária já estiver pronta...
       if (user) {
-        // A sessão está pronta! Podemos mostrar o formulário de senha com segurança.
+        // ...mostramos o formulário de senha com segurança.
         setView('update_password');
       }
-      // Se o `user` ainda for nulo, a view continua como 'loading',
-      // e o useEffect será re-executado quando o `user` mudar.
-      return;
-    }
-    
-    // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
-    if (user) {
+      // Se a sessão ainda não estiver pronta, a view continua como 'loading'.
+      // O useEffect será re-executado quando `user` mudar, resolvendo o problema.
+    } else if (user) {
+      // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
       router.push('/dashboard');
-      return;
+    } else {
+      // 3. Se não for nenhuma das anteriores, é um utilizador não logado que precisa de ver o formulário de login.
+      setView('login');
     }
-
-    // 3. Se não for nenhuma das anteriores, é um utilizador não logado que precisa de ver o formulário de login.
-    setView('login');
-
   }, [user, router]);
 
   // Renderização condicional com base no estado 'view'
