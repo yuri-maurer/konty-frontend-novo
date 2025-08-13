@@ -2,31 +2,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-import { FiLogIn, FiKey, FiEye, FiEyeOff } from 'react-icons/fi'; // Adicionado FiEye, FiEyeOff
+import { FiLogIn, FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
-// --- Componente para o formulário de definir/resetar a senha ---
+// --- Componente para o formulário de definir/resetar a senha (COM MELHORIAS) ---
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
-  const user = useUser(); // <<<<<<< PONTO DE INVESTIGAÇÃO
+  const user = useUser();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  // LOG DE INVESTIGAÇÃO: Vamos ver o estado do 'user' quando este componente renderiza.
-  useEffect(() => {
-    console.log('--- DIAGNÓSTICO UpdatePasswordForm ---');
-    if (user) {
-      console.log('Sessão encontrada. Email do utilizador:', user.email);
-    } else {
-      console.error('ERRO DE DIAGNÓSTICO: O formulário de senha foi renderizado, mas a sessão (user) é NULA.');
-    }
-    console.log('------------------------------------');
-  }, [user]);
-
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,41 +49,60 @@ const UpdatePasswordForm = () => {
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Definir Nova Senha</h1>
-      <p className="text-center text-gray-600 mb-6">Crie uma senha segura para aceder à sua conta.</p>
-      <form onSubmit={handlePasswordUpdate} className="space-y-6">
+      {/* MELHORIA 1: Exibe o email do utilizador */}
+      {user?.email && (
+        <p className="text-center text-gray-600 mb-6">
+          A criar senha para: <span className="font-medium text-indigo-600">{user.email}</span>
+        </p>
+      )}
+      
+      <form onSubmit={handlePasswordUpdate} className="space-y-4">
         <div>
           <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
             Nova Senha
           </label>
-          <input
-            type="password"
-            id="new-password"
-            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="********"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              id="new-password"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="********"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            {/* MELHORIA 2: Botão para visualizar a senha */}
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
+          {/* MELHORIA 3: Requisitos da senha */}
+          <p className="text-xs text-gray-500 mt-1">A senha deve ter no mínimo 6 caracteres.</p>
         </div>
         <div>
           <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
             Confirmar Senha
           </label>
-          <input
-            type="password"
-            id="confirm-password"
-            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="********"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              id="confirm-password"
+              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="********"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500">
+              {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
         </div>
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">{error}</div>}
-        {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md">{success}</div>}
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mt-2">{error}</div>}
+        {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mt-2">{success}</div>}
         <button
           type="submit"
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6"
           disabled={loading || !!success}
         >
           <FiKey />
@@ -175,10 +184,9 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ASSERTIVA) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
 export default function LoginPage() {
-  const [view, setView] = useState<'login' | 'update_password'>('login');
-  const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<'login' | 'update_password' | 'loading'>('loading');
   const user = useUser();
   const router = useRouter();
 
@@ -186,28 +194,45 @@ export default function LoginPage() {
     const hash = window.location.hash;
     const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
 
+    // LÓGICA DE PRIORIDADE PARA RESOLVER A RACE CONDITION:
+    // 1. Se for um fluxo de convite/recuperação, esperamos que o `user` (sessão temporária) seja carregado.
     if (isInviteOrRecoveryFlow) {
-      setView('update_password');
-      setIsLoading(false);
-      return; 
+      if (user) {
+        // A sessão está pronta! Podemos mostrar o formulário de senha com segurança.
+        setView('update_password');
+      }
+      // Se o `user` ainda for nulo, a view continua como 'loading',
+      // e o useEffect será re-executado quando o `user` mudar.
+      return;
     }
     
+    // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
     if (user) {
       router.push('/dashboard');
-      return; 
+      return;
     }
 
-    setIsLoading(false);
+    // 3. Se não for nenhuma das anteriores, é um utilizador não logado que precisa de ver o formulário de login.
+    setView('login');
 
   }, [user, router]);
 
-  if (isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
-  }
+  // Renderização condicional com base no estado 'view'
+  const renderView = () => {
+    switch (view) {
+      case 'update_password':
+        return <UpdatePasswordForm />;
+      case 'login':
+        return <LoginForm />;
+      case 'loading':
+      default:
+        return <div className="text-gray-600">A verificar autenticação...</div>;
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      {view === 'update_password' ? <UpdatePasswordForm /> : <LoginForm />}
+      {renderView()}
     </div>
   );
 }
