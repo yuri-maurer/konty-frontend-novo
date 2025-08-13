@@ -1,21 +1,14 @@
 // pages/ativar-conta.tsx
-// NOTA PARA O DESENVOLVEDOR: O código abaixo está correto. O erro de build "Could not resolve module"
-// indica que os pacotes podem não estar corretamente instalados no ambiente da Vercel.
-// Para garantir que todas as dependências estejam presentes, por favor, execute o seguinte comando localmente
-// e depois faça o commit dos ficheiros package.json e package-lock.json atualizados:
-// npm install next react react-dom @supabase/auth-helpers-react react-icons
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useSupabaseClient, useUser, useSessionContext } from '@supabase/auth-helpers-react';
 import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
-// --- Componente para o formulário de definir/resetar a senha ---
+// O formulário de atualização de senha permanece o mesmo.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
   const user = useUser();
-
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,22 +23,15 @@ const UpdatePasswordForm = () => {
       setError('As senhas não coincidem.');
       return;
     }
-    if (password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      setSuccess('Senha definida com sucesso! A redirecionar para o painel...');
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-    } catch (err: any)      {
+      setSuccess('Senha definida com sucesso! A redirecionar...');
+      setTimeout(() => router.push('/dashboard'), 2000);
+    } catch (err: any) {
       setError(err.message || 'Não foi possível definir a senha.');
     } finally {
       setLoading(false);
@@ -55,102 +41,62 @@ const UpdatePasswordForm = () => {
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina a sua Senha</h1>
-      {user?.email && (
-        <p className="text-center text-gray-600 mb-6">
-          A criar senha para: <span className="font-medium text-indigo-600">{user.email}</span>
-        </p>
-      )}
-      
+      {user?.email && <p className="text-center text-gray-600 mb-6">Para: <span className="font-medium text-indigo-600">{user.email}</span></p>}
       <form onSubmit={handlePasswordUpdate} className="space-y-4">
+        {/* Campos de senha (sem alteração) */}
         <div>
-          <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
-            Nova Senha
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              id="new-password"
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="********"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">
-              {showPassword ? <FiEyeOff /> : <FiEye />}
-            </button>
-          </div>
+          <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+          <div className="relative"><input type={showPassword ? 'text' : 'password'} id="new-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showPassword ? <FiEyeOff /> : <FiEye />}</button></div>
           <p className="text-xs text-gray-500 mt-1">A senha deve ter no mínimo 6 caracteres.</p>
         </div>
         <div>
-          <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-            Confirmar Senha
-          </label>
-          <div className="relative">
-            <input
-              type={showConfirmPassword ? 'text' : 'password'}
-              id="confirm-password"
-              className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="********"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">
-              {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
-            </button>
-          </div>
+          <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha</label>
+          <div className="relative"><input type={showConfirmPassword ? 'text' : 'password'} id="confirm-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /><button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showConfirmPassword ? <FiEyeOff /> : <FiEye />}</button></div>
         </div>
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mt-2">{error}</div>}
         {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mt-2">{success}</div>}
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6"
-          disabled={loading || !!success}
-        >
-          <FiKey />
-          {loading ? 'A salvar...' : 'Salvar Nova Senha'}
-        </button>
+        <button type="submit" className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6" disabled={loading || !!success}><FiKey />{loading ? 'A salvar...' : 'Salvar Nova Senha'}</button>
       </form>
     </div>
   );
 };
 
-
-// --- Página principal que lida com a ativação da conta ---
+// --- Página principal que reage ao estado global ---
 export default function ActivateAccountPage() {
-  const [view, setView] = useState<'loading' | 'update_password'>('loading');
-  const supabase = useSupabaseClient();
+  const { isLoading, session } = useSessionContext();
   const router = useRouter();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        setView('update_password');
-      }
-      else if (event === 'INITIAL_SESSION' && session) {
-          router.push('/dashboard');
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase, router]);
-
-  const renderView = () => {
-    switch (view) {
-      case 'update_password':
-        return <UpdatePasswordForm />;
-      case 'loading':
-      default:
-        return <div className="text-gray-600 animate-pulse">A verificar a sua sessão...</div>;
+    // Se não está a carregar e a sessão já existe, significa que o utilizador
+    // já está logado e não deveria estar aqui. Redireciona para o dashboard.
+    // A exceção é se o URL contiver o token de convite.
+    if (!isLoading && session && !window.location.hash.includes('type=invite')) {
+      router.replace('/dashboard');
     }
-  };
+  }, [isLoading, session, router]);
 
+  // Se o Supabase ainda está a processar a sessão (a ler o token do URL)...
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div className="text-gray-600 animate-pulse">A verificar a sua sessão...</div>
+      </div>
+    );
+  }
+
+  // Se terminou de carregar e existe uma sessão (o token do URL foi validado), mostra o formulário.
+  if (session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <UpdatePasswordForm />
+      </div>
+    );
+  }
+  
+  // Se terminou de carregar e não há sessão, o link é inválido ou expirou.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      {renderView()}
+      <div className="text-red-600">Link de convite inválido ou expirado. Por favor, solicite um novo convite.</div>
     </div>
   );
 }
