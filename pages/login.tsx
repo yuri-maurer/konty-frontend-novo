@@ -2,18 +2,31 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
-import { FiLogIn, FiKey } from 'react-icons/fi';
+import { FiLogIn, FiKey, FiEye, FiEyeOff } from 'react-icons/fi'; // Adicionado FiEye, FiEyeOff
 
 // --- Componente para o formulário de definir/resetar a senha ---
-// Nenhuma alteração necessária aqui.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
+  const user = useUser(); // <<<<<<< PONTO DE INVESTIGAÇÃO
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // LOG DE INVESTIGAÇÃO: Vamos ver o estado do 'user' quando este componente renderiza.
+  useEffect(() => {
+    console.log('--- DIAGNÓSTICO UpdatePasswordForm ---');
+    if (user) {
+      console.log('Sessão encontrada. Email do utilizador:', user.email);
+    } else {
+      console.error('ERRO DE DIAGNÓSTICO: O formulário de senha foi renderizado, mas a sessão (user) é NULA.');
+    }
+    console.log('------------------------------------');
+  }, [user]);
+
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +106,6 @@ const UpdatePasswordForm = () => {
 
 
 // --- Componente para o formulário de Login normal ---
-// Nenhuma alteração necessária aqui.
 const LoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -167,35 +179,27 @@ const LoginForm = () => {
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = useSupabaseClient();
   const user = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // A fonte de verdade mais rápida para o fluxo de convite/recuperação é o URL.
-    // Verificamos o hash do URL assim que o componente é montado.
     const hash = window.location.hash;
     const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
 
-    // LÓGICA DE PRIORIDADE:
-    // 1. Se for um fluxo de convite/recuperação, a prioridade MÁXIMA é mostrar o formulário de senha.
     if (isInviteOrRecoveryFlow) {
       setView('update_password');
       setIsLoading(false);
-      return; // Interrompe a execução do useEffect para evitar outras verificações.
+      return; 
     }
     
-    // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
     if (user) {
       router.push('/dashboard');
-      return; // Interrompe a execução.
+      return; 
     }
 
-    // 3. Se não for nenhuma das anteriores, significa que é um utilizador não logado
-    // que precisa de ver o formulário de login.
     setIsLoading(false);
 
-  }, [user, router]); // Removemos o supabase do array de dependências para evitar re-renderizações desnecessárias.
+  }, [user, router]);
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
