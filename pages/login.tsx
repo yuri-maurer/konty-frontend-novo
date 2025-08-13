@@ -181,37 +181,39 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ASSERTIVA) ---
 export default function LoginPage() {
-  // 1. Detecção síncrona do fluxo: verificamos o hash uma única vez na renderização inicial do cliente.
-  const [isInviteFlow] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.hash.includes('type=invite');
-    }
-    return false;
-  });
-
   const [view, setView] = useState<'login' | 'update_password' | 'loading'>('loading');
-  const user = useUser();
+  const supabase = useSupabaseClient();
   const router = useRouter();
 
   useEffect(() => {
-    // 2. Lógica reativa que depende do fluxo detectado e do estado do utilizador.
-    if (isInviteFlow) {
-      // Se for um fluxo de convite, esperamos pacientemente pelo objeto 'user'.
-      if (user) {
-        // Quando o 'user' estiver disponível (sessão estabelecida pelo Supabase), mostramos o formulário.
+    // A fonte da verdade: subscrever diretamente aos eventos de autenticação.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Verificamos o hash da URL *dentro* do callback para ter a informação mais atual.
+      const isInviteFlow = typeof window !== 'undefined' && window.location.hash.includes('type=invite');
+
+      // Cenário 1: O evento é SIGNED_IN (o utilizador acabou de logar ou usou um link mágico)
+      if (event === 'SIGNED_IN' && isInviteFlow) {
+        // É um fluxo de convite, mostramos o formulário para definir a senha.
         setView('update_password');
+      } 
+      // Cenário 2: O utilizador já tinha uma sessão válida ao carregar a página
+      else if (event === 'INITIAL_SESSION' && session) {
+          router.push('/dashboard');
       }
-      // Se 'user' ainda for nulo, a view continua como 'loading', aguardando a re-renderização que será causada pela atualização do hook useUser.
-    } else if (user) {
-      // Se NÃO for um fluxo de convite e o utilizador estiver logado, redirecionamos.
-      router.push('/dashboard');
-    } else {
-      // Se não for fluxo de convite e não houver utilizador, é um login normal.
-      setView('login');
-    }
-  }, [user, isInviteFlow, router]); // Dependemos explicitamente de 'user' e 'isInviteFlow'.
+      // Cenário 3: O utilizador não está logado (sessão é nula)
+      else if (!session) {
+        // Se não houver sessão, mostramos o login.
+        setView('login');
+      }
+    });
+
+    // Função de limpeza: cancelar a subscrição quando o componente for desmontado.
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase, router]);
 
   // Renderização condicional com base no estado 'view'
   const renderView = () => {
