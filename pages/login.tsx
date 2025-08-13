@@ -5,7 +5,7 @@ import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiLogIn, FiKey } from 'react-icons/fi';
 
 // --- Componente para o formulário de definir/resetar a senha ---
-// Nenhuma alteração necessária aqui.
+// Nenhuma alteração necessária aqui, o seu componente está perfeito.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -163,7 +163,7 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA CORRIGIDA E FINAL) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -172,43 +172,37 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Primeiro, determinamos se estamos num fluxo de convite/recuperação pelo URL.
-    const hash = window.location.hash;
-    const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
-
-    // Se for um fluxo de convite E o `user` (da sessão temporária) já estiver disponível,
-    // podemos mostrar o formulário de atualização de senha com segurança.
-    if (isInviteOrRecoveryFlow && user) {
-      setView('update_password');
-    }
-
-    // O listener de autenticação lida com o login bem-sucedido (após definir a senha ou login normal).
+    // O listener de autenticação é a nossa fonte de verdade.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // Após definir a senha ou fazer login, o utilizador é redirecionado.
-        router.push('/dashboard');
+      // Este evento é disparado quando o utilizador segue um link de convite ou de reset de senha.
+      // É o sinal para mostrar o formulário de atualização de senha.
+      if (event === 'PASSWORD_RECOVERY') {
+        setView('update_password');
       }
     });
 
-    // Se o utilizador já tem uma sessão normal (não de convite), redireciona imediatamente.
-    if (user && !isInviteOrRecoveryFlow) {
+    // Verificamos o estado inicial. Se o utilizador já tem uma sessão
+    // E NÃO está no meio de um fluxo de recuperação (verificado pelo URL),
+    // então podemos redirecioná-lo em segurança.
+    const isRecoveryFlow = window.location.hash.includes('type=recovery') || window.location.hash.includes('type=invite');
+    if (user && !isRecoveryFlow) {
       router.push('/dashboard');
     }
 
-    // A página só para de carregar depois de todas as verificações.
+    // Se não houver utilizador ou se for um fluxo de recuperação, paramos o loading
+    // e deixamos o listener e a interação do utilizador guiarem o fluxo.
     setIsLoading(false);
 
     // Limpamos a subscrição quando o componente é desmontado.
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, router, supabase]); // O `user` é uma dependência chave aqui.
+  }, [user, router, supabase]);
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
   }
 
-  // Renderiza o formulário correto com base no estado 'view'.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       {view === 'update_password' ? <UpdatePasswordForm /> : <LoginForm />}
