@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiLogIn, FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
-// --- Componente para o formulário de definir/resetar a senha (COM MELHORIAS) ---
+// --- Componente para o formulário de definir/resetar a senha (sem alterações) ---
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -49,7 +49,6 @@ const UpdatePasswordForm = () => {
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Definir Nova Senha</h1>
-      {/* MELHORIA 1: Exibe o email do utilizador */}
       {user?.email && (
         <p className="text-center text-gray-600 mb-6">
           A criar senha para: <span className="font-medium text-indigo-600">{user.email}</span>
@@ -71,12 +70,10 @@ const UpdatePasswordForm = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            {/* MELHORIA 2: Botão para visualizar a senha */}
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">
               {showPassword ? <FiEyeOff /> : <FiEye />}
             </button>
           </div>
-          {/* MELHORIA 3: Requisitos da senha */}
           <p className="text-xs text-gray-500 mt-1">A senha deve ter no mínimo 6 caracteres.</p>
         </div>
         <div>
@@ -114,7 +111,7 @@ const UpdatePasswordForm = () => {
 };
 
 
-// --- Componente para o formulário de Login normal ---
+// --- Componente para o formulário de Login normal (sem alterações) ---
 const LoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -187,31 +184,45 @@ const LoginForm = () => {
 // --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password' | 'loading'>('loading');
-  const user = useUser();
+  const supabase = useSupabaseClient();
   const router = useRouter();
 
   useEffect(() => {
-    const hash = window.location.hash;
-    const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
+    // A fonte da verdade: subscrever diretamente aos eventos de autenticação.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const hash = window.location.hash;
+      const isInviteFlow = hash.includes('type=invite');
 
-    // LÓGICA DE PRIORIDADE PARA RESOLVER A RACE CONDITION:
-    // 1. Se for um fluxo de convite/recuperação...
-    if (isInviteOrRecoveryFlow) {
-      // ...e a sessão temporária já estiver pronta...
-      if (user) {
-        // ...mostramos o formulário de senha com segurança.
-        setView('update_password');
+      // Cenário 1: O evento é SIGNED_IN (o utilizador acabou de logar ou usou um link mágico)
+      if (event === 'SIGNED_IN') {
+        if (isInviteFlow) {
+          // É um fluxo de convite, mostramos o formulário para definir a senha.
+          setView('update_password');
+        } else {
+          // É um login normal, redirecionamos para o dashboard.
+          router.push('/dashboard');
+        }
+      } 
+      // Cenário 2: O utilizador não está logado (sessão é nula)
+      else if (!session) {
+        // Se não houver sessão E não for um fluxo de convite, mostramos o login.
+        // A verificação `!isInviteFlow` previne que a página de login apareça brevemente
+        // antes de o evento SIGNED_IN do convite ser processado.
+        if (!isInviteFlow) {
+          setView('login');
+        }
       }
-      // Se a sessão ainda não estiver pronta, a view continua como 'loading'.
-      // O useEffect será re-executado quando `user` mudar, resolvendo o problema.
-    } else if (user) {
-      // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
-      router.push('/dashboard');
-    } else {
-      // 3. Se não for nenhuma das anteriores, é um utilizador não logado que precisa de ver o formulário de login.
-      setView('login');
-    }
-  }, [user, router]);
+      // Cenário 3: O utilizador já tinha uma sessão válida ao carregar a página
+      else if (event === 'INITIAL_SESSION' && session) {
+          router.push('/dashboard');
+      }
+    });
+
+    // Função de limpeza: cancelar a subscrição quando o componente for desmontado.
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase, router]);
 
   // Renderização condicional com base no estado 'view'
   const renderView = () => {
@@ -222,7 +233,7 @@ export default function LoginPage() {
         return <LoginForm />;
       case 'loading':
       default:
-        return <div className="text-gray-600">A verificar autenticação...</div>;
+        return <div className="text-gray-600 animate-pulse">A verificar autenticação...</div>;
     }
   };
 
