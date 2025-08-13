@@ -183,46 +183,35 @@ const LoginForm = () => {
 
 // --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ROBUSTA) ---
 export default function LoginPage() {
+  // 1. Detecção síncrona do fluxo: verificamos o hash uma única vez na renderização inicial do cliente.
+  const [isInviteFlow] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hash.includes('type=invite');
+    }
+    return false;
+  });
+
   const [view, setView] = useState<'login' | 'update_password' | 'loading'>('loading');
-  const supabase = useSupabaseClient();
+  const user = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    // A fonte da verdade: subscrever diretamente aos eventos de autenticação.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      const hash = window.location.hash;
-      const isInviteFlow = hash.includes('type=invite');
-
-      // Cenário 1: O evento é SIGNED_IN (o utilizador acabou de logar ou usou um link mágico)
-      if (event === 'SIGNED_IN') {
-        if (isInviteFlow) {
-          // É um fluxo de convite, mostramos o formulário para definir a senha.
-          setView('update_password');
-        } else {
-          // É um login normal, redirecionamos para o dashboard.
-          router.push('/dashboard');
-        }
-      } 
-      // Cenário 2: O utilizador não está logado (sessão é nula)
-      else if (!session) {
-        // Se não houver sessão E não for um fluxo de convite, mostramos o login.
-        // A verificação `!isInviteFlow` previne que a página de login apareça brevemente
-        // antes de o evento SIGNED_IN do convite ser processado.
-        if (!isInviteFlow) {
-          setView('login');
-        }
+    // 2. Lógica reativa que depende do fluxo detectado e do estado do utilizador.
+    if (isInviteFlow) {
+      // Se for um fluxo de convite, esperamos pacientemente pelo objeto 'user'.
+      if (user) {
+        // Quando o 'user' estiver disponível (sessão estabelecida pelo Supabase), mostramos o formulário.
+        setView('update_password');
       }
-      // Cenário 3: O utilizador já tinha uma sessão válida ao carregar a página
-      else if (event === 'INITIAL_SESSION' && session) {
-          router.push('/dashboard');
-      }
-    });
-
-    // Função de limpeza: cancelar a subscrição quando o componente for desmontado.
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase, router]);
+      // Se 'user' ainda for nulo, a view continua como 'loading', aguardando a re-renderização que será causada pela atualização do hook useUser.
+    } else if (user) {
+      // Se NÃO for um fluxo de convite e o utilizador estiver logado, redirecionamos.
+      router.push('/dashboard');
+    } else {
+      // Se não for fluxo de convite e não houver utilizador, é um login normal.
+      setView('login');
+    }
+  }, [user, isInviteFlow, router]); // Dependemos explicitamente de 'user' e 'isInviteFlow'.
 
   // Renderização condicional com base no estado 'view'
   const renderView = () => {
