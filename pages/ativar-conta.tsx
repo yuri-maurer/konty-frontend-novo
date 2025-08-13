@@ -5,7 +5,7 @@
 // instaladas. É ESSENCIAL executar o comando `npm install` no seu terminal
 // para que a Vercel consiga encontrar estes pacotes.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser, useSessionContext } from '@supabase/auth-helpers-react';
 import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
@@ -72,6 +72,30 @@ const UpdatePasswordForm = () => {
 
 // --- Página principal que reage ao estado global ---
 export default function ActivateAccountPage() {
+  const router = useRouter();
+  const supabase = useSupabaseClient();
+
+  // Fallback: tenta trocar o token manualmente se a sessão ainda não estiver pronta
+  useEffect(() => {
+    const run = async () => {
+      if (session) return;
+      if (isLoading) return;
+
+      const hash = window.location.hash || '';
+      const hasOtp = /access_token=|code=/i.test(hash);
+      if (hasOtp) {
+        const { error } = await supabase.auth.exchangeCodeForSession(hash);
+        if (!error) return; // sessão criada com sucesso
+      }
+
+      // Última tentativa
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return; // sessão obtida
+      // Se chegou aqui, a sessão não existe — manterá o fluxo de link inválido
+    };
+    run();
+  }, [isLoading, session, supabase]);
+
   const { isLoading, session } = useSessionContext();
 
   // Se o Supabase ainda está a processar a sessão...
