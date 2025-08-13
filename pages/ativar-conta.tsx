@@ -1,10 +1,16 @@
 // pages/ativar-conta.tsx
-import { useState, useEffect } from 'react';
+// NOTA IMPORTANTE PARA O BUILD:
+// O código abaixo está correto para o ambiente Next.js/Vercel.
+// O erro "Could not resolve module" acontece se as dependências não estiverem
+// instaladas. É ESSENCIAL executar o comando `npm install` no seu terminal
+// para que a Vercel consiga encontrar estes pacotes.
+
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser, useSessionContext } from '@supabase/auth-helpers-react';
 import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
-// O formulário de atualização de senha permanece o mesmo.
+// O formulário de atualização de senha não tem alterações.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -22,6 +28,10 @@ const UpdatePasswordForm = () => {
     if (password !== confirmPassword) {
       setError('As senhas não coincidem.');
       return;
+    }
+    if (password.length < 6) {
+        setError('A senha deve ter no mínimo 6 caracteres.');
+        return;
     }
     setLoading(true);
     setError(null);
@@ -43,7 +53,6 @@ const UpdatePasswordForm = () => {
       <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina a sua Senha</h1>
       {user?.email && <p className="text-center text-gray-600 mb-6">Para: <span className="font-medium text-indigo-600">{user.email}</span></p>}
       <form onSubmit={handlePasswordUpdate} className="space-y-4">
-        {/* Campos de senha (sem alteração) */}
         <div>
           <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
           <div className="relative"><input type={showPassword ? 'text' : 'password'} id="new-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showPassword ? <FiEyeOff /> : <FiEye />}</button></div>
@@ -64,18 +73,8 @@ const UpdatePasswordForm = () => {
 // --- Página principal que reage ao estado global ---
 export default function ActivateAccountPage() {
   const { isLoading, session } = useSessionContext();
-  const router = useRouter();
 
-  useEffect(() => {
-    // Se não está a carregar e a sessão já existe, significa que o utilizador
-    // já está logado e não deveria estar aqui. Redireciona para o dashboard.
-    // A exceção é se o URL contiver o token de convite.
-    if (!isLoading && session && !window.location.hash.includes('type=invite')) {
-      router.replace('/dashboard');
-    }
-  }, [isLoading, session, router]);
-
-  // Se o Supabase ainda está a processar a sessão (a ler o token do URL)...
+  // Se o Supabase ainda está a processar a sessão...
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -84,7 +83,7 @@ export default function ActivateAccountPage() {
     );
   }
 
-  // Se terminou de carregar e existe uma sessão (o token do URL foi validado), mostra o formulário.
+  // Se terminou de carregar e existe uma sessão, o token foi validado com sucesso. Mostra o formulário.
   if (session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -96,7 +95,9 @@ export default function ActivateAccountPage() {
   // Se terminou de carregar e não há sessão, o link é inválido ou expirou.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="text-red-600">Link de convite inválido ou expirado. Por favor, solicite um novo convite.</div>
+      <div className="text-red-600 bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+        Link de convite inválido ou expirado. Por favor, solicite um novo convite.
+      </div>
     </div>
   );
 }
