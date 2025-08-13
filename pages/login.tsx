@@ -1,12 +1,10 @@
 // pages/login.tsx
 import { useState, useEffect } from 'react';
-// CORREÇÃO: Importações foram ajustadas para usar um CDN, resolvendo erros de compilação.
-import { useRouter } from 'https://esm.sh/next/router';
-import { useSupabaseClient } from 'https://esm.sh/@supabase/auth-helpers-react';
-import { FiLogIn } from 'https://esm.sh/react-icons/fi';
+import { useRouter } from 'next/router';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { FiLogIn } from 'react-icons/fi';
 
 // --- Componente para o formulário de Login ---
-// A única responsabilidade desta página agora é o login.
 const LoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -26,9 +24,7 @@ const LoginForm = () => {
         });
 
         if (error) {
-            setError('E-mail ou senha inválidos.'); // Mensagem de erro mais genérica por segurança
-        } else {
-            // O redirecionamento será tratado pelo listener onAuthStateChange na página principal
+            setError('E-mail ou senha inválidos.');
         }
         setLoading(false);
     };
@@ -82,13 +78,10 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // A lógica agora é muito mais simples.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        // Se existe uma sessão, o utilizador está logado. Redirecionar para o dashboard.
         router.push('/dashboard');
       } else {
-        // Se não existe sessão, mostrar o formulário de login.
         setShowLogin(true);
       }
     });

@@ -1,12 +1,10 @@
 // pages/ativar-conta.tsx
 import { useState, useEffect } from 'react';
-// CORREÇÃO: Importações foram ajustadas para usar um CDN, resolvendo erros de compilação.
-import { useRouter } from 'https://esm.sh/next/router';
-import { useSupabaseClient, useUser } from 'https://esm.sh/@supabase/auth-helpers-react';
-import { FiKey, FiEye, FiEyeOff } from 'https://esm.sh/react-icons/fi';
+import { useRouter } from 'next/router';
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
 // --- Componente para o formulário de definir/resetar a senha ---
-// Este componente foi movido do login.tsx para ser usado aqui.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -38,7 +36,6 @@ const UpdatePasswordForm = () => {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setSuccess('Senha definida com sucesso! A redirecionar para o painel...');
-      // Redireciona para o dashboard após um breve momento
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);
@@ -121,29 +118,20 @@ export default function ActivateAccountPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Subscreve aos eventos de autenticação para detetar quando o utilizador é validado
-    // através do link de convite.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Cenário 1: O utilizador acabou de ser autenticado pelo link mágico.
-      // Este é o evento esperado para um novo utilizador.
       if (event === 'SIGNED_IN') {
         setView('update_password');
       }
-      // Cenário 2: O utilizador já tinha uma sessão válida ao carregar a página.
-      // Isto pode acontecer se ele já estiver logado e aceder a este URL.
-      // Nesse caso, redirecionamos para o dashboard.
       else if (event === 'INITIAL_SESSION' && session) {
           router.push('/dashboard');
       }
     });
 
-    // Função de limpeza para cancelar a subscrição e evitar memory leaks.
     return () => {
       subscription.unsubscribe();
     };
   }, [supabase, router]);
 
-  // Renderiza a view apropriada com base no estado.
   const renderView = () => {
     switch (view) {
       case 'update_password':
