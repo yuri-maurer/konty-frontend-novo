@@ -5,7 +5,7 @@ import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiLogIn, FiKey } from 'react-icons/fi';
 
 // --- Componente para o formulário de definir/resetar a senha ---
-// Nenhuma alteração necessária aqui, o seu componente está perfeito.
+// Nenhuma alteração necessária aqui.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -163,7 +163,7 @@ const LoginForm = () => {
 };
 
 
-// --- Página principal que decide qual formulário mostrar (LÓGICA CORRIGIDA E FINAL) ---
+// --- Página principal que decide qual formulário mostrar (LÓGICA FINAL E ASSERTIVA) ---
 export default function LoginPage() {
   const [view, setView] = useState<'login' | 'update_password'>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -172,32 +172,30 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // O listener de autenticação é a nossa fonte de verdade.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Este evento é disparado quando o utilizador segue um link de convite ou de reset de senha.
-      // É o sinal para mostrar o formulário de atualização de senha.
-      if (event === 'PASSWORD_RECOVERY') {
-        setView('update_password');
-      }
-    });
+    // A fonte de verdade mais rápida para o fluxo de convite/recuperação é o URL.
+    // Verificamos o hash do URL assim que o componente é montado.
+    const hash = window.location.hash;
+    const isInviteOrRecoveryFlow = hash.includes('type=invite') || hash.includes('type=recovery');
 
-    // Verificamos o estado inicial. Se o utilizador já tem uma sessão
-    // E NÃO está no meio de um fluxo de recuperação (verificado pelo URL),
-    // então podemos redirecioná-lo em segurança.
-    const isRecoveryFlow = window.location.hash.includes('type=recovery') || window.location.hash.includes('type=invite');
-    if (user && !isRecoveryFlow) {
+    // LÓGICA DE PRIORIDADE:
+    // 1. Se for um fluxo de convite/recuperação, a prioridade MÁXIMA é mostrar o formulário de senha.
+    if (isInviteOrRecoveryFlow) {
+      setView('update_password');
+      setIsLoading(false);
+      return; // Interrompe a execução do useEffect para evitar outras verificações.
+    }
+    
+    // 2. Se NÃO for um fluxo de convite e o utilizador JÁ ESTIVER logado, redireciona.
+    if (user) {
       router.push('/dashboard');
+      return; // Interrompe a execução.
     }
 
-    // Se não houver utilizador ou se for um fluxo de recuperação, paramos o loading
-    // e deixamos o listener e a interação do utilizador guiarem o fluxo.
+    // 3. Se não for nenhuma das anteriores, significa que é um utilizador não logado
+    // que precisa de ver o formulário de login.
     setIsLoading(false);
 
-    // Limpamos a subscrição quando o componente é desmontado.
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [user, router, supabase]);
+  }, [user, router]); // Removemos o supabase do array de dependências para evitar re-renderizações desnecessárias.
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center bg-gray-100">A verificar...</div>;
