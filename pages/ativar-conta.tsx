@@ -74,6 +74,7 @@ const UpdatePasswordForm = () => {
 export default function ActivateAccountPage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
+  const { isLoading, session } = useSessionContext();
 
   // Fallback: tenta trocar o token manualmente se a sessão ainda não estiver pronta
   useEffect(() => {
@@ -95,8 +96,6 @@ export default function ActivateAccountPage() {
     };
     run();
   }, [isLoading, session, supabase]);
-
-  const { isLoading, session } = useSessionContext();
 
   // Se o Supabase ainda está a processar a sessão...
   if (isLoading) {
