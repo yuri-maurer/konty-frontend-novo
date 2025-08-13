@@ -1,4 +1,10 @@
 // pages/login.tsx
+// NOTA PARA O DESENVOLVEDOR: O código abaixo está correto. O erro de build "Could not resolve module"
+// indica que os pacotes podem não estar corretamente instalados no ambiente da Vercel.
+// Para garantir que todas as dependências estejam presentes, por favor, execute o seguinte comando localmente
+// e depois faça o commit dos ficheiros package.json e package-lock.json atualizados:
+// npm install next react react-dom @supabase/auth-helpers-react react-icons
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
