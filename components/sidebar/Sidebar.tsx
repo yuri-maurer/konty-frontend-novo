@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { FiHome, FiStar, FiPackage, FiChevronRight, FiShield } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
+import { useFavorites } from '../contexts/FavoritesContext'; // 1. Importar o hook de favoritos
 
 type View = 'root' | 'favoritos' | 'modulos';
 const STORAGE_KEY = 'sidebar:view';
@@ -30,30 +31,27 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
   const supabaseClient = useSupabaseClient();
   const user = useUser();
 
+  // 2. Consumir o estado de favoritos do contexto central
+  const { favoritePaths, toggleFavorite, isLoaded: favsLoaded } = useFavorites();
+
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
     async function fetchUserRole() {
       setRoleLoading(true);
-      
       if (!user) {
         setUserRole(null);
         setRoleLoading(false);
         return;
       }
-
       try {
         const { data, error } = await supabaseClient
           .from('profiles')
           .select('role')
           .eq('id', user.id)
           .single();
-
-        if (error && error.code !== 'PGRST116') {
-          throw error;
-        }
-        
+        if (error && error.code !== 'PGRST116') throw error;
         setUserRole(data?.role || 'user');
       } catch (error) {
         console.error("Erro ao buscar a função do utilizador na sidebar:", error);
@@ -65,60 +63,8 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     fetchUserRole();
   }, [user, supabaseClient]);
 
-
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [favHydrated, setFavHydrated] = useState(false);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('moduleFavorites');
-      const storedFavorites = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(storedFavorites)) {
-        const cleanedFavorites = storedFavorites.filter(fav => typeof fav === 'string' && fav.startsWith('/'));
-        setFavorites(cleanedFavorites);
-      } else {
-        setFavorites([]);
-      }
-    } catch (error) {
-      console.error("Falha ao carregar favoritos na sidebar:", error);
-      setFavorites([]);
-    }
-    setFavHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string[]>).detail || [];
-      setFavorites(Array.isArray(detail) ? detail : []);
-    };
-    window.addEventListener('favorites-updated', handler as EventListener);
-    return () => window.removeEventListener('favorites-updated', handler as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'moduleFavorites') {
-        try { setFavorites(JSON.parse(e.newValue || '[]')); } catch {}
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
-  useEffect(() => {
-    if (!favHydrated) return;
-    try { localStorage.setItem('moduleFavorites', JSON.stringify(favorites)); } catch {}
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
-    }
-  }, [favorites, favHydrated]);
-
-  const toggleFavorite = (path: string) => {
-    setFavorites(prev => {
-        const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
-        return Array.from(new Set(next));
-    });
-  };
+  // 3. REMOVER toda a lógica antiga de useState e useEffect para 'favorites'
+  //    O `useFavorites` já trata de tudo (localStorage, etc.)
 
   const [view, setView] = useState<View>('root');
   const rootFirstRef = useRef<HTMLAnchorElement | HTMLButtonElement>(null);
@@ -150,11 +96,12 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [view]);
 
+  // 4. A lista do painel agora usa `favoritePaths` diretamente do contexto
   const panelList = useMemo(() => {
     if (view === 'modulos') return modules;
-    if (view === 'favoritos') return modules.filter(m => favorites.includes(m.path));
+    if (view === 'favoritos') return modules.filter(m => favoritePaths.includes(m.path));
     return [];
-  }, [view, modules, favorites]);
+  }, [view, modules, favoritePaths]);
 
   const isActiveRoot = (path: string) => router.pathname === path;
 
@@ -210,7 +157,6 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               <FiChevronRight />
             </button>
             
-            {/* --- ATUALIZADO: LINK DE ADMINISTRAÇÃO COM ESTILO CONSISTENTE --- */}
             {!roleLoading && userRole === 'admin' && (
               <>
                 <div className="pt-2">
@@ -258,7 +204,8 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
               ) : (
                 <ul className="space-y-1">
                   {panelList.map((m, idx) => {
-                    const isFav = favorites.includes(m.path);
+                    // 5. A verificação se é favorito agora vem da função do contexto
+                    const isFav = favoritePaths.includes(m.path);
                     const isActive = router.pathname.startsWith(m.path);
                     return (
                       <li key={m.path} className="flex items-center justify-between">
@@ -271,6 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({ modules }) => {
                           <span className={`text-base font-medium ${isActive ? 'text-blue-700' : 'text-gray-800'} truncate`}>{m.name}</span>
                         </button>
                         <button
+                          // 6. A ação de favoritar agora usa a função `toggleFavorite` do contexto
                           onClick={(e) => { e.stopPropagation(); toggleFavorite(m.path); }}
                           title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                           className={`shrink-0 p-3 text-2xl rounded-md drop-shadow-sm transition ${isFav ? 'text-yellow-400' : 'text-gray-500'} hover:scale-110`}
