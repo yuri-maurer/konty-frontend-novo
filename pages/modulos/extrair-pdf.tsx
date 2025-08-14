@@ -109,18 +109,21 @@ const ExtrairPdfPage: FC = () => {
     addLog('Envio para Backend', 'Processando', 'A iniciar upload do PDF.');
 
     const formData = new FormData();
-    formData.append('pdfFile', file);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+    formData.append('pdf_file', file); // O backend FastAPI espera 'pdf_file'
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
     try {
-      const response = await fetch(`${apiUrl}/processar-pdf`, {
+      // CORREÇÃO: Adicionado o prefixo '/modulos' ao URL da API
+      const response = await fetch(`${apiUrl}/modulos/processar-pdf`, {
         method: 'POST',
         body: formData,
       });
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido no backend.' }));
-        throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ detail: 'Erro desconhecido no backend.' }));
+        throw new Error(errorData.detail || `Erro do servidor: ${response.status}`);
       }
+
       const blob = await response.blob();
       const contentDisposition = response.headers.get('content-disposition');
       let filename = 'recibos_processados.zip';
@@ -165,7 +168,6 @@ const ExtrairPdfPage: FC = () => {
     setIsDragging(false);
   };
 
-  // Função adicionada para exportar logs
   const handleExportLogs = () => {
     if (!logs.length) {
       alert('Não há logs para exportar.');
