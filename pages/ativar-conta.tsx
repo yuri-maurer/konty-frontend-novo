@@ -35,7 +35,8 @@ const UpdatePasswordForm = () => {
       if (error) throw error;
       setSuccess('Senha definida com sucesso! Redirecionando...');
       setTimeout(() => router.push('/dashboard'), 2000);
-    } catch (err: any)      setError(err.message || 'Não foi possível definir a senha.');
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível definir a senha.');
     } finally {
       setLoading(false);
     }
@@ -43,17 +44,20 @@ const UpdatePasswordForm = () => {
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
-      <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina sua Senha</h1>
+      {/* 1. Título ajustado */}
+      <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Defina sua Senha</h1>
       {user?.email && <p className="text-center text-gray-600 mb-6">Para: <span className="font-medium text-indigo-600">{user.email}</span></p>}
       <form onSubmit={handlePasswordUpdate} className="space-y-4">
         <div>
           <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-          <div className="relative"><input type={showPassword ? 'text' : 'password'} id="new-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showPassword ? <FiEyeOff /> : <FiEye />}</button></div>
+          {/* 2. Cor do texto do input ajustada */}
+          <div className="relative"><input type={showPassword ? 'text' : 'password'} id="new-password" className="text-gray-900 placeholder-gray-400 mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showPassword ? <FiEyeOff /> : <FiEye />}</button></div>
           <p className="text-xs text-gray-500 mt-1">A senha deve ter no mínimo 6 caracteres.</p>
         </div>
         <div>
           <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha</label>
-          <div className="relative"><input type={showConfirmPassword ? 'text' : 'password'} id="confirm-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /><button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showConfirmPassword ? <FiEyeOff /> : <FiEye />}</button></div>
+           {/* 2. Cor do texto do input ajustada */}
+          <div className="relative"><input type={showConfirmPassword ? 'text' : 'password'} id="confirm-password" className="text-gray-900 placeholder-gray-400 mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /><button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showConfirmPassword ? <FiEyeOff /> : <FiEye />}</button></div>
         </div>
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mt-2">{error}</div>}
         {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mt-2">{success}</div>}
