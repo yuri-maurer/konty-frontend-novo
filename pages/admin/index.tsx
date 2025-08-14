@@ -209,7 +209,8 @@ const InviteUserModal = ({ onClose, onUserInvited }: { onClose: () => void; onUs
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email do Utilizador</label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FiMail className="h-5 w-5 text-gray-400" /></div>
-            <input type="email" name="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="nome@exemplo.com" required />
+            {/* AJUSTE: Cor da fonte do input */}
+            <input type="email" name="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="text-gray-900 block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="nome@exemplo.com" required />
           </div>
         </div>
         <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end items-center gap-3"><button type="button" onClick={onClose} disabled={inviting} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50">Cancelar</button><button type="submit" disabled={inviting} className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:bg-indigo-400">{inviting ? 'A enviar...' : 'Enviar Convite'}</button></div>
@@ -316,7 +317,7 @@ function AdminConsole() {
   const fetchPermittedModules = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { p_user_id: currentUser.id });
+      const { data, error } = await supabase.rpc('get_permitted_modules_for_user', { in_user_id: currentUser.id });
       if (error) throw error;
       setPermittedModules(data || []);
     } catch (error) { console.error("Erro ao buscar módulos permitidos:", error); }
@@ -365,7 +366,6 @@ function AdminConsole() {
   const handleResendInvite = async (userToResend: AppUser) => {
     setActionLoading(true);
     try {
-      // AJUSTE FINAL: Padronizando a chamada para usar a Edge Function 'resend-invite'
       const { error } = await supabase.functions.invoke('resend-invite', {
         body: { email: userToResend.email },
       });
