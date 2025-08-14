@@ -4,25 +4,14 @@ import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import DashboardLayout from '../components/layout/DashboardLayout';
 
-// A interface do Módulo permanece a mesma, mas agora ela reflete
-// a estrutura da sua tabela 'modulos' no Supabase.
 interface ModuleDef {
   key: string;
   name: string;
   path: string;
   description?: string;
   iconClass?: string;
-  // Outros campos como 'category', 'status', 'color' foram removidos
-  // pois não estão na nova tabela 'modulos'. Podem ser adicionados lá se necessário.
 }
 
-/**
- * Normaliza a lista de favoritos, convertendo chaves antigas para paths.
- * Esta função agora aceita um array de ModuleDef, vindo diretamente do Supabase.
- * @param rawFavorites - O array lido diretamente do localStorage.
- * @param allModules - O array de todos os módulos disponíveis no sistema.
- * @returns Um array de paths de favoritos limpo e normalizado.
- */
 const normalizeFavorites = (rawFavorites: unknown, allModules: ModuleDef[]): string[] => {
   if (!Array.isArray(rawFavorites) || allModules.length === 0) {
     return [];
@@ -47,28 +36,21 @@ export default function DashboardPage() {
   const user = useUser();
   const supabase = useSupabaseClient();
 
-  // --- NOVOS ESTADOS PARA CARREGAMENTO DINÂMICO ---
-  // Armazena a lista de TODOS os módulos vindos da tabela 'modulos'
   const [allModules, setAllModules] = useState<ModuleDef[]>([]);
-  // Armazena as chaves dos módulos que o usuário atual tem permissão para usar
   const [allowedKeys, setAllowedKeys] = useState<string[]>([]);
   
-  // Controla o estado de carregamento das duas fontes de dados
   const [loadingModules, setLoadingModules] = useState(true);
   const [loadingPerms, setLoadingPerms] = useState(true);
 
-  // --- EFEITO 1: BUSCAR O CATÁLOGO DE MÓDULOS ---
-  // Este useEffect roda uma vez para buscar a lista completa de módulos do Supabase.
   useEffect(() => {
     async function fetchAllModules() {
       try {
-        // Seleciona todas as colunas de todos os registros da tabela 'modulos'
         const { data, error } = await supabase.from('modulos').select('*');
         if (error) throw error;
         setAllModules(data || []);
       } catch (error) {
         console.error("Erro ao buscar o catálogo de módulos:", error);
-        setAllModules([]); // Em caso de erro, a lista fica vazia
+        setAllModules([]);
       } finally {
         setLoadingModules(false);
       }
@@ -76,8 +58,6 @@ export default function DashboardPage() {
     fetchAllModules();
   }, [supabase]);
 
-  // --- EFEITO 2: BUSCAR AS PERMISSÕES DO USUÁRIO ---
-  // Este useEffect busca as permissões do usuário logado.
   useEffect(() => {
     async function fetchUserPermissions() {
       if (!user) {
@@ -103,73 +83,61 @@ export default function DashboardPage() {
     fetchUserPermissions();
   }, [supabase, user]);
 
-  // --- LÓGICA DE MÓDULOS PERMITIDOS (useMemo) ---
-  // Este hook reage às mudanças e calcula a lista final de módulos permitidos
-  // cruzando a lista de todos os módulos com as chaves de permissão do usuário.
   const allowedModules = useMemo<ModuleDef[]>(() => {
     if (loadingModules || loadingPerms) return [];
     return allModules.filter(module => allowedKeys.includes(module.key));
   }, [allModules, allowedKeys, loadingModules, loadingPerms]);
 
-  // ---------- LÓGICA DE FAVORITOS (Adaptada) ----------
-  const STORAGE_KEY = 'moduleFavorites';
+  // ---------- LÓGICA DE FAVORITOS CORRIGIDA ----------
+
+  // CORREÇÃO: A chave do localStorage agora é dinâmica, baseada no ID do usuário.
+  // Isso garante que os favoritos de cada usuário sejam armazenados separadamente.
+  const STORAGE_KEY = useMemo(() => {
+    if (!user) return null; // Retorna null se o usuário não estiver logado
+    return `moduleFavorites_${user.id}`;
+  }, [user]);
+
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favHydrated, setFavHydrated] = useState(false);
 
-  // Este useEffect agora depende do carregamento dos módulos para poder normalizar.
+  // Carrega os favoritos do localStorage quando a chave (STORAGE_KEY) estiver disponível.
   useEffect(() => {
-    // Só executa a lógica de normalização DEPOIS que a lista de módulos for carregada.
-    if (loadingModules) return; 
+    // Não executa se os módulos não foram carregados ou se não há um usuário logado (STORAGE_KEY é null)
+    if (loadingModules || !STORAGE_KEY) return; 
     
     try {
       const storedRaw = localStorage.getItem(STORAGE_KEY);
       const rawFavorites = storedRaw ? JSON.parse(storedRaw) : [];
       
-      // Usa a lista 'allModules' vinda do banco de dados para a normalização.
       const cleanedFavorites = normalizeFavorites(rawFavorites, allModules);
 
       setFavorites(cleanedFavorites);
 
+      // Se a normalização limpou a lista, atualiza o localStorage
       if (JSON.stringify(rawFavorites) !== JSON.stringify(cleanedFavorites)) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanedFavorites));
-        window.dispatchEvent(new CustomEvent('favorites-updated', { detail: cleanedFavorites }));
       }
     } catch (error) {
       console.error("Falha ao carregar ou normalizar favoritos:", error);
+      localStorage.removeItem(STORAGE_KEY); // Remove dados corrompidos
       setFavorites([]);
     }
     setFavHydrated(true);
-  }, [loadingModules, allModules]); // Depende de 'allModules' para funcionar corretamente.
+  }, [loadingModules, allModules, STORAGE_KEY]); // Depende da STORAGE_KEY
 
-  // O restante da lógica de favoritos permanece igual, reagindo a eventos.
+  // Salva os favoritos no localStorage sempre que a lista 'favorites' ou a chave 'STORAGE_KEY' mudar.
   useEffect(() => {
-    const handler = (e: Event) => {
-      const value = (e as CustomEvent<string[]>).detail || [];
-      setFavorites(Array.isArray(value) ? value : []);
-    };
-    window.addEventListener('favorites-updated', handler as EventListener);
-    return () => window.removeEventListener('favorites-updated', handler as EventListener);
-  }, []);
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        try { setFavorites(JSON.parse(e.newValue || '[]')); } catch {}
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
-  useEffect(() => {
-    if (!favHydrated) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites)); } catch {}
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('favorites-updated', { detail: favorites }));
+    // Não salva se não estiver hidratado ou se não houver usuário logado
+    if (!favHydrated || !STORAGE_KEY) return;
+    try { 
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites)); 
+    } catch (error) {
+      console.error("Falha ao salvar favoritos no localStorage:", error);
     }
-  }, [favorites, favHydrated]);
+  }, [favorites, favHydrated, STORAGE_KEY]);
 
   const isFavoritePath = (path: string) => favorites.includes(path);
+  
   const toggleFavoritePath = (path: string) => {
     setFavorites((prev) => {
       const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
@@ -183,7 +151,6 @@ export default function DashboardPage() {
     <DashboardLayout
       modules={allowedModules.map((m) => ({ name: m.name, path: m.path, icon: (() => null) as any }))}
     >
-      {/* Blocos superiores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Módulos ativos</p>
@@ -194,12 +161,11 @@ export default function DashboardPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <p className="text-xs text-gray-500">Favoritos</p>
           <p className="text-2xl font-semibold text-gray-900 mt-1">
-            {isLoading ? '...' : favorites.length}
+            {isLoading || !favHydrated ? '...' : favorites.length}
           </p>
         </div>
       </div>
 
-      {/* ===== Seção Acesso Rápido ===== */}
       <section aria-labelledby="acesso-rapido-title" className="mb-4">
         <h2 id="acesso-rapido-title" className="text-lg font-semibold text-gray-900 mb-3">
           Acesso Rápido
