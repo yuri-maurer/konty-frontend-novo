@@ -1,41 +1,41 @@
 // middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 
-export function middleware(request: NextRequest) {
-  const { hostname, pathname, search } = request.nextUrl;
+export async function middleware(req: NextRequest) {
+  // Cria cliente atrelado ao request/response para ler sessão via cookies
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  // Ignorar assets e arquivos públicos comuns
-  const ignore = [
-    '/favicon.ico',
-    '/robots.txt',
-    '/sitemap.xml',
-    '/_next/static',
-    '/_next/image',
-    '/assets',
-    '/images',
-    '/fonts',
-  ];
-  if (ignore.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  const url = req.nextUrl
+  const pathname = url.pathname
+
+  // 1) Redireciona usuário logado para /dashboard quando vier em /login
+  if (pathname === '/login' && session) {
+    const to = url.clone()
+    to.pathname = '/dashboard'
+    return NextResponse.redirect(to)
   }
 
-  // Não forçar redirect em deploy previews ou domínios *.vercel.app
-  if (hostname.endsWith('.vercel.app')) {
-    return NextResponse.next();
+  // 2) Protege rotas privadas (adicione o que fizer sentido)
+  const protectedPrefixes = ['/dashboard', '/administracao', '/modulos']
+  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p))
+  if (isProtected && !session) {
+    const to = url.clone()
+    to.pathname = '/login'
+    return NextResponse.redirect(to)
   }
 
-  // Forçar domínio canônico www.konty.com.br
-  if (hostname === 'konty.com.br') {
-    const url = request.nextUrl.clone();
-    url.hostname = 'www.konty.com.br';
-    url.search = search; // preserva querystring
-    return NextResponse.redirect(url, 308);
-  }
-
-  return NextResponse.next();
+  // 3) Permite seguir normalmente
+  return res
 }
 
+// Aplica o middleware em todas as rotas, exceto assets estáticos
 export const config = {
-  matcher: '/:path*',
-};
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)).*)'],
+}
