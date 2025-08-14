@@ -1,16 +1,10 @@
 // pages/ativar-conta.tsx
-// NOTA IMPORTANTE PARA O BUILD:
-// O código abaixo está correto para o ambiente Next.js/Vercel.
-// O erro "Could not resolve module" acontece se as dependências não estiverem
-// instaladas. É ESSENCIAL executar o comando `npm install` no seu terminal
-// para que a Vercel consiga encontrar estes pacotes.
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useUser, useSessionContext } from '@supabase/auth-helpers-react';
 import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 
-// O formulário de atualização de senha não tem alterações.
+// O formulário de atualização de senha permanece o mesmo.
 const UpdatePasswordForm = () => {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -39,10 +33,9 @@ const UpdatePasswordForm = () => {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      setSuccess('Senha definida com sucesso! A redirecionar...');
+      setSuccess('Senha definida com sucesso! Redirecionando...');
       setTimeout(() => router.push('/dashboard'), 2000);
-    } catch (err: any) {
-      setError(err.message || 'Não foi possível definir a senha.');
+    } catch (err: any)      setError(err.message || 'Não foi possível definir a senha.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +43,7 @@ const UpdatePasswordForm = () => {
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
-      <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina a sua Senha</h1>
+      <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina sua Senha</h1>
       {user?.email && <p className="text-center text-gray-600 mb-6">Para: <span className="font-medium text-indigo-600">{user.email}</span></p>}
       <form onSubmit={handlePasswordUpdate} className="space-y-4">
         <div>
@@ -64,7 +57,7 @@ const UpdatePasswordForm = () => {
         </div>
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mt-2">{error}</div>}
         {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mt-2">{success}</div>}
-        <button type="submit" className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6" disabled={loading || !!success}><FiKey />{loading ? 'A salvar...' : 'Salvar Nova Senha'}</button>
+        <button type="submit" className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6" disabled={loading || !!success}><FiKey />{loading ? 'Salvando...' : 'Salvar Nova Senha'}</button>
       </form>
     </div>
   );
@@ -72,47 +65,60 @@ const UpdatePasswordForm = () => {
 
 // --- Página principal que reage ao estado global ---
 export default function ActivateAccountPage() {
-  const router = useRouter();
   const supabase = useSupabaseClient();
   const { isLoading, session } = useSessionContext();
+  // NOVO ESTADO: Controla o nosso próprio processo de verificação para evitar o "flicker".
+  const [isVerifying, setIsVerifying] = useState(true);
 
-  // Fallback: tenta trocar o token manualmente se a sessão ainda não estiver pronta
+  // O useEffect que já funcionava, agora também controla o nosso novo estado.
   useEffect(() => {
-  const run = async () => {
-    // Se já temos sessão ou ainda está carregando, não faz nada
-    if (session || isLoading) return;
-
-    // 1) Fluxo PKCE (?code=...)
-    if (/([?#]|^)code=/.test(window.location.href)) {
-      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
-      if (!error) return; // sessão criada
-    }
-
-    // 2) Fluxo com fragmento (#access_token=...&refresh_token=...)
-    const hash = window.location.hash || '';
-    if (/access_token=/.test(hash) && /refresh_token=/.test(hash)) {
-      const params = new URLSearchParams(hash.slice(1));
-      const access_token  = params.get('access_token')  || '';
-      const refresh_token = params.get('refresh_token') || '';
-      if (access_token && refresh_token) {
-        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (!error) return; // sessão criada
+    const run = async () => {
+      // Se já temos sessão ou o Supabase ainda está carregando, não faz nada.
+      if (session || isLoading) {
+        // Se já temos sessão, a verificação terminou.
+        if(session) setIsVerifying(false);
+        return;
       }
-    }
 
-    // 3) Última tentativa: checar se a sessão apareceu
-    const { data } = await supabase.auth.getSession();
-    if (data.session) return;
-    // Se nada funcionou, a UI cairá no estado "inválido"
-  };
-  run();
-}, [isLoading, session, supabase]);
+      let sessionEstablished = false;
 
-  // Se o Supabase ainda está a processar a sessão...
-  if (isLoading) {
+      // 1) Fluxo PKCE (?code=...)
+      if (/([?#]|^)code=/.test(window.location.href)) {
+        const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+        if (!error) sessionEstablished = true;
+      }
+
+      // 2) Fluxo com fragmento (#access_token=...&refresh_token=...)
+      if (!sessionEstablished) {
+        const hash = window.location.hash || '';
+        if (/access_token=/.test(hash) && /refresh_token=/.test(hash)) {
+          const params = new URLSearchParams(hash.slice(1));
+          const access_token  = params.get('access_token')  || '';
+          const refresh_token = params.get('refresh_token') || '';
+          if (access_token && refresh_token) {
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (!error) sessionEstablished = true;
+          }
+        }
+      }
+      
+      // 3) Última tentativa: checar se a sessão apareceu
+      if(!sessionEstablished) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) sessionEstablished = true;
+      }
+
+      // Marca que o nosso processo de verificação terminou.
+      setIsVerifying(false);
+    };
+    run();
+  }, [isLoading, session, supabase]);
+
+  // ALTERAÇÃO: Exibe "verificando" enquanto o Supabase OU o nosso processo estiver rodando.
+  if (isLoading || isVerifying) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <div className="text-gray-600 animate-pulse">A verificar a sua sessão...</div>
+        <div className="text-gray-600 animate-pulse">Verificando sua sessão...</div>
       </div>
     );
   }
