@@ -78,24 +78,35 @@ export default function ActivateAccountPage() {
 
   // Fallback: tenta trocar o token manualmente se a sessão ainda não estiver pronta
   useEffect(() => {
-    const run = async () => {
-      if (session) return;
-      if (isLoading) return;
+  const run = async () => {
+    // Se já temos sessão ou ainda está carregando, não faz nada
+    if (session || isLoading) return;
 
-      const hash = window.location.hash || '';
-      const hasOtp = /access_token=|code=/i.test(hash);
-      if (hasOtp) {
-        const { error } = await supabase.auth.exchangeCodeForSession(hash);
-        if (!error) return; // sessão criada com sucesso
+    // 1) Fluxo PKCE (?code=...)
+    if (/([?#]|^)code=/.test(window.location.href)) {
+      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+      if (!error) return; // sessão criada
+    }
+
+    // 2) Fluxo com fragmento (#access_token=...&refresh_token=...)
+    const hash = window.location.hash || '';
+    if (/access_token=/.test(hash) && /refresh_token=/.test(hash)) {
+      const params = new URLSearchParams(hash.slice(1));
+      const access_token  = params.get('access_token')  || '';
+      const refresh_token = params.get('refresh_token') || '';
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!error) return; // sessão criada
       }
+    }
 
-      // Última tentativa
-      const { data } = await supabase.auth.getSession();
-      if (data.session) return; // sessão obtida
-      // Se chegou aqui, a sessão não existe — manterá o fluxo de link inválido
-    };
-    run();
-  }, [isLoading, session, supabase]);
+    // 3) Última tentativa: checar se a sessão apareceu
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return;
+    // Se nada funcionou, a UI cairá no estado "inválido"
+  };
+  run();
+}, [isLoading, session, supabase]);
 
   // Se o Supabase ainda está a processar a sessão...
   if (isLoading) {
