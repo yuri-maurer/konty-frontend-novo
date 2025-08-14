@@ -1,102 +1,136 @@
-// pages/ativar-conta.tsx
+// pages/login.tsx
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient, useUser, useSessionContext } from '@supabase/auth-helpers-react';
-import { FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
+import { FiLogIn, FiMail, FiLock } from 'react-icons/fi';
 
-// O formulário de atualização de senha permanece o mesmo.
-const UpdatePasswordForm = () => {
+export default function LoginPage() {
   const supabase = useSupabaseClient();
+  const session = useSession();
   const router = useRouter();
-  const user = useUser();
+  
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem.');
-      return;
+  // Redireciona se o usuário já estiver logado.
+  // O middleware já faz isso no servidor, mas mantemos como fallback no cliente.
+  useEffect(() => {
+    if (session) {
+      router.replace('/dashboard');
     }
+  }, [session, router]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccess(null);
+
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      setSuccess('Senha definida com sucesso! A redirecionar...');
-      setTimeout(() => router.push('/dashboard'), 2000);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        // Mapeia erros comuns para mensagens mais amigáveis
+        if (error.message === 'Invalid login credentials') {
+          throw new Error('E-mail ou senha inválidos. Por favor, tente novamente.');
+        }
+        throw error;
+      }
+      
+      // O redirecionamento será tratado pelo useEffect ou pelo middleware
+      router.push('/dashboard');
+
     } catch (err: any) {
-      setError(err.message || 'Não foi possível definir a senha.');
+      setError(err.message || 'Ocorreu um erro ao tentar fazer login.');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200 animate-fade-in">
-      <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Bem-vindo(a)! Defina a sua Senha</h1>
-      {user?.email && <p className="text-center text-gray-600 mb-6">Para: <span className="font-medium text-indigo-600">{user.email}</span></p>}
-      <form onSubmit={handlePasswordUpdate} className="space-y-4">
-        {/* Campos de senha (sem alteração) */}
-        <div>
-          <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-          <div className="relative"><input type={showPassword ? 'text' : 'password'} id="new-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={password} onChange={(e) => setPassword(e.target.value)} required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showPassword ? <FiEyeOff /> : <FiEye />}</button></div>
-          <p className="text-xs text-gray-500 mt-1">A senha deve ter no mínimo 6 caracteres.</p>
-        </div>
-        <div>
-          <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha</label>
-          <div className="relative"><input type={showConfirmPassword ? 'text' : 'password'} id="confirm-password" className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /><button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-indigo-600">{showConfirmPassword ? <FiEyeOff /> : <FiEye />}</button></div>
-        </div>
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mt-2">{error}</div>}
-        {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md mt-2">{success}</div>}
-        <button type="submit" className="w-full flex items-center justify-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mt-6" disabled={loading || !!success}><FiKey />{loading ? 'A salvar...' : 'Salvar Nova Senha'}</button>
-      </form>
-    </div>
-  );
-};
-
-// --- Página principal que reage ao estado global ---
-export default function ActivateAccountPage() {
-  const { isLoading, session } = useSessionContext();
-  const router = useRouter();
-
-  useEffect(() => {
-    // Se não está a carregar e a sessão já existe, significa que o utilizador
-    // já está logado e não deveria estar aqui. Redireciona para o dashboard.
-    // A exceção é se o URL contiver o token de convite.
-    if (!isLoading && session && !window.location.hash.includes('type=invite')) {
-      router.replace('/dashboard');
-    }
-  }, [isLoading, session, router]);
-
-  // Se o Supabase ainda está a processar a sessão (a ler o token do URL)...
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <div className="text-gray-600 animate-pulse">A verificar a sua sessão...</div>
-      </div>
-    );
-  }
-
-  // Se terminou de carregar e existe uma sessão (o token do URL foi validado), mostra o formulário.
+  // Não renderiza o formulário se a sessão já existir (evita piscar a tela)
   if (session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <UpdatePasswordForm />
-      </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+            <div className="text-gray-600">Redirecionando...</div>
+        </div>
     );
   }
-  
-  // Se terminou de carregar e não há sessão, o link é inválido ou expirou.
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="text-red-600">Link de convite inválido ou expirado. Por favor, solicite um novo convite.</div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+          <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Acessar Plataforma</h1>
+          <p className="text-center text-gray-500 mb-8">Bem-vindo(a) de volta.</p>
+          
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                E-mail
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiMail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="seu.email@exemplo.com"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Senha
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiLock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="********"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
+                <p>{error}</p>
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-sm text-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+              >
+                <FiLogIn />
+                {loading ? 'A entrar...' : 'Entrar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
