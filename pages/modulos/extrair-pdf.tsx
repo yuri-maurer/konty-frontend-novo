@@ -53,6 +53,7 @@ const ExtrairPdfPage: FC = () => {
           router.push('/dashboard?error=unauthorized');
         } else {
           setIsAuthorized(true);
+          fetchLogs();
         }
       } catch (e) {
         console.error("Erro ao verificar permissões:", e);
@@ -74,7 +75,57 @@ const ExtrairPdfPage: FC = () => {
       details,
     };
     setLogs(prevLogs => [newLog, ...prevLogs]);
-  }, [file?.name]);
+  
+    // Persistência no Supabase (não bloqueia a UI)
+    try {
+      const userId = (user as any)?.id || (user as any)?.user?.id;
+      if (userId) {
+        // roda em fire-and-forget para não travar UX
+        (async () => {
+          try {
+            await supabase.from('user_module_logs').insert({
+              user_id: userId,
+              module_slug: 'extrair-pdf',
+              action,
+              result,
+              details,
+              filename: fileName || (file?.name ?? null),
+            });
+          } catch (e) {
+            console.warn('Falha ao gravar log no Supabase:', (e as any)?.message || e);
+          }
+        })();
+      }
+    } catch (e) {
+      console.warn('Supabase indisponível para logs:', (e as any)?.message || e);
+    }
+    }, [file?.name]);
+  // Carrega logs persistidos do Supabase para este usuário (modulo extrair-pdf)
+  const fetchLogs = useCallback(async () => {
+    try {
+      const userId = (user as any)?.id || (user as any)?.user?.id;
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from('user_module_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('module_slug', 'extrair-pdf')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+      if (!error && Array.isArray(data)) {
+        setLogs(data.map((l: any) => ({
+          dateTime: new Date(l.timestamp).toLocaleString('pt-BR'),
+          file: l.filename ?? '',
+          action: l.action,
+          result: l.result,
+          details: l.details ?? '',
+        })));
+      }
+    } catch (e) {
+      console.warn('Falha ao carregar logs do Supabase:', (e as any)?.message || e);
+    }
+  }, [supabase, user]);
+
 
   const handleFileSelect = useCallback((selectedFile: File | null) => {
     if (selectedFile) {
