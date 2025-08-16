@@ -110,6 +110,7 @@ const ExtrairPdfPage: FC = () => {
         .select('*')
         .eq('user_id', userId)
         .eq('module_slug', 'extrair-pdf')
+        .gte('timestamp', new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString())
         .order('timestamp', { ascending: false })
         .limit(100);
       if (!error && Array.isArray(data)) {
